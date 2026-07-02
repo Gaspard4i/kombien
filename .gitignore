@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+apps/*/node_modules/
+
+# Build outputs
+dist/
+apps/*/dist/
+apps/web/.svelte-kit/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.local
+infra/.env
+*.pem
+*.key
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test artifacts
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.playwright/
+coverage/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude / planning (jamais commité)
+.claude/
+CLAUDE.local.md
+
+# Docker
+*.tar.gz
