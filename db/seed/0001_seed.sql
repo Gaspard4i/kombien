@@ -321,4 +321,3 @@ INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALU
 ON CONFLICT (slug) DO NOTHING;
 
 COMMIT;
-</content>
