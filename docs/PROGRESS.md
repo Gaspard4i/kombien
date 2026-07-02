@@ -4,8 +4,14 @@
 > Toujours mettre à jour cette page à la fin de chaque étape.
 
 **Dernière mise à jour** : 2026-07-02
-**Phase courante** : Backend + Direction artistique (en parallèle, sous-agents)
-**Prochaine action** : à réception backend + DESIGN_SYSTEM.md → lancer le frontend (dépend des deux).
+**Phase courante** : Backend écrit (tests à finaliser) + design system prêt. Frontend à lancer.
+**Prochaine action APRÈS REDÉMARRAGE** :
+1. Utiliser les AGENTS PROJET de `.claude/agents/` (game-designer, backend, frontend, design-reviewer, devops, qa) — le prompt l'exige. Ils ne sont routables qu'après un redémarrage de Claude Code.
+2. Finaliser/vérifier le backend via l'agent `backend` : `cd apps/api && npm install && npm test` (viser 100% couverture domain). Le code est écrit et commité ; seul le run install+tests reste à confirmer.
+3. Lancer l'agent `frontend` : Vite+Svelte, i18n fr/en, les 3 modes, design split-flap (voir docs/DESIGN_SYSTEM.md), contrat API dans docs/API_CONTRACT.md.
+4. Puis `devops` (Dockerfiles + compose dev/prod + deploy.sh + deploy.yml + server-setup.sh), `design-reviewer` (captures Playwright mobile+desktop), `qa` (e2e), et enfin compose up local pour l'essai complet.
+
+Objectif utilisateur : version COMPLÈTE testable en local d'un coup (pas de vertical slice).
 
 ## Sécurité (règle ferme — voir mémoire feedback-security-secrets-server)
 Aucun secret en clair (code/config/docs), jamais push .env, secrets prod générés sur serveur chmod 600, DB non exposée, backup Traefik avant modif, clé deploy dédiée, aucune prod sans accord user.
@@ -21,9 +27,10 @@ Aucun secret en clair (code/config/docs), jamais push .env, secrets prod génér
 - [x] Phase 0 — Découverte (questions, infra serveur inspectée)
 - [x] Phase 1 — Échafaudage repo + CLAUDE.md + docs + agents
 - [x] Phase 2/3 — Game design + seed (5 cat, 47 questions, 10 badges) — poussé GitHub
-- [~] Backend — schéma SQL, migrations, API Fastify, tests scoring (sous-agent en cours)
-- [ ] Frontend — Vite+Svelte, i18n fr/en, 3 modes, responsive
-- [~] Design — DESIGN_SYSTEM.md direction artistique (sous-agent en cours), puis review Playwright
+- [~] Backend — code écrit+commité (schéma, migrations 0001/0002, domaine scoring, routes). RESTE : npm install + npm test (100% couverture domain à confirmer).
+- [ ] Frontend — Vite+Svelte, i18n fr/en, 3 modes, responsive (à lancer via agent `frontend`)
+- [x] Design — DESIGN_SYSTEM.md (split-flap Solari) prêt. RESTE : review Playwright après le front.
+- Contrat API réel figé dans docs/API_CONTRACT.md. Unités: second/minute/hour/day/week/month/year.
 - [ ] DevOps — Dockerfiles, compose dev/prod, deploy.sh, deploy.yml, server-setup.sh
 - [ ] QA — e2e Playwright, rapport local
 - [ ] Validation user (feu vert requis)
