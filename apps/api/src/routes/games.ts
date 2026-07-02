@@ -90,8 +90,10 @@ export async function gamesRoutes(app: FastifyInstance): Promise<void> {
         await client.query('BEGIN');
 
         // 1. Recalcul du domaine (score, précision, streak, xp, badges).
+        // Le schéma garantit exactement 2 joueurs (minItems/maxItems).
         const computed = body.players.map((p) => computePlayerRun({ answers: p.answers }));
-        const winner = decideWinner(computed[0].finalScore, computed[1].finalScore);
+        const [computedA, computedB] = computed;
+        const winner = decideWinner(computedA!.finalScore, computedB!.finalScore);
 
         // 2. Enregistrer la partie.
         const gameRow = await client.query(
@@ -108,9 +110,8 @@ export async function gamesRoutes(app: FastifyInstance): Promise<void> {
         );
 
         const results = [];
-        for (let i = 0; i < body.players.length; i++) {
-          const input = body.players[i];
-          const comp = computed[i];
+        const runs = body.players.map((input, i) => ({ input, comp: computed[i]!, index: i }));
+        for (const { input, comp, index: i } of runs) {
           const isWinner = winner.winnerIndex === i;
 
           const before = await upsertPlayer(client, input.pseudo);
