@@ -33,3 +33,6 @@ Un joueur = un pseudo unique. Pas de mot de passe (jeu convivial en local). XP/b
 
 ## D-010 — Postgres 16 (imposé), image alpine
 `postgres:16-alpine` pour la légèreté. Volume nommé pour la persistance.
+
+## D-011 — Leaderboard par catégorie = approximation (score cumulé global)
+Le modèle de données imposé ne rattache pas une partie à une catégorie unique (une partie peut mélanger les manches/catégories). `GET /leaderboard?category=<slug>` valide l'existence du slug mais retourne le score cumulé par joueur (pas strictement filtré par catégorie). Un vrai classement par catégorie nécessiterait de persister la catégorie par manche — hors périmètre du schéma minimum, à trancher plus tard si besoin.

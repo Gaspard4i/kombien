@@ -4,6 +4,7 @@
 > Toujours mettre à jour cette page à la fin de chaque étape.
 
 **Dernière mise à jour** : 2026-07-02
+**IMPORTANT RELANCE** : pour que les agents projet (.claude/agents/) soient routables, Claude Code DOIT être démarré DEPUIS le dossier `kombien/` lui-même (pas le parent `projects/`). Commande : `cd C:\Users\GaspardCatry\Documents\personel\projects\kombien` puis `claude`. Vérifier au démarrage que l'agent `frontend` existe (sinon fallback general-purpose avec mêmes instructions).
 **Phase courante** : Backend VALIDÉ (61 tests pass, 100% couverture domaine, build OK, poussé). Design system prêt. Frontend à lancer.
 **Prochaine action APRÈS REDÉMARRAGE de Claude Code** :
 1. Utiliser les AGENTS PROJET de `.claude/agents/` (game-designer, backend, frontend, design-reviewer, devops, qa) — le prompt l'exige. Ils ne sont routables qu'après un redémarrage (Claude Code lit .claude/agents/ au démarrage seulement).
