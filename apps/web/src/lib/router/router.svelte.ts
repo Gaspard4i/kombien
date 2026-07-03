@@ -4,7 +4,10 @@
 // modération) -> on lit l'URL au chargement pour permettre d'y accéder directement.
 
 export type Route =
-  | { name: 'home' }
+  // cancelledGame (Lot 5 v2, GAME_DESIGN_V2.md §4.2 règle 4) : true quand l'arrivée sur
+  // l'accueil suit l'annulation d'une partie interrompue pendant sa toute première manche
+  // incomplète (pas de résultat classé à afficher, juste un message explicite sur Home).
+  | { name: 'home'; cancelledGame?: boolean }
   | { name: 'setup' }
   | { name: 'game' }
   | { name: 'end' }

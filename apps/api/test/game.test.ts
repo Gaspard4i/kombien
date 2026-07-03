@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   computePlayerRun,
   decideWinners,
+  truncateToLastCompleteRound,
   type RawAnswer,
 } from '../src/domain/game.ts';
 
@@ -216,4 +217,64 @@ test('computePlayerRun : duel, 3 joueurs tous ex-æquo -> floor(2/3)=0, personne
   assert.equal(c.finalScore, 0);
   assert.equal(c.goodAnswers, 0);
   assert.equal(c.playedAnswers[0]!.goodAnswer, false);
+});
+
+// Fin de partie assouplie (GAME_DESIGN_V2.md §4.2) : réponse minimale pour un joueur, sur un
+// round donné (le mode/contenu n'a pas d'importance, seul roundIndex compte ici).
+function answerAt(roundIndex: number): RawAnswer {
+  return { mode: 'binaire', questionId: 1, roundIndex, responseTimeMs: 1000, durationSeconds: 3600, binaryAnswer: 'yes' };
+}
+
+test('truncateToLastCompleteRound : manche en cours incomplète -> tronquée pour tous, y compris ceux déjà passés', () => {
+  // 2 manches complètes (round 0 et 1, 2 questions chacune), puis round 2 entamé par Alice
+  // seule (Bob n'y a pas encore répondu) : le round 2 doit disparaître pour Alice aussi.
+  const alice = [answerAt(0), answerAt(0), answerAt(1), answerAt(1), answerAt(2)];
+  const bob = [answerAt(0), answerAt(0), answerAt(1), answerAt(1)];
+
+  const result = truncateToLastCompleteRound([alice, bob]);
+  assert.equal(result.cancelled, false);
+  assert.equal(result.players[0]!.length, 4); // round 2 d'Alice jeté
+  assert.equal(result.players[1]!.length, 4);
+  assert.ok(result.players[0]!.every((a) => a.roundIndex <= 1));
+});
+
+test('truncateToLastCompleteRound : arrêt en fin de manche complète -> rien ne change', () => {
+  const alice = [answerAt(0), answerAt(1)];
+  const bob = [answerAt(0), answerAt(1)];
+
+  const result = truncateToLastCompleteRound([alice, bob]);
+  assert.equal(result.cancelled, false);
+  assert.equal(result.players[0]!.length, 2);
+  assert.equal(result.players[1]!.length, 2);
+});
+
+test('truncateToLastCompleteRound : arrêt pendant la toute première manche -> partie annulée', () => {
+  const alice = [answerAt(0), answerAt(0)];
+  const bob = [answerAt(0)]; // Bob n'a répondu qu'à 1 question de la manche 0
+
+  const result = truncateToLastCompleteRound([alice, bob]);
+  assert.equal(result.cancelled, true);
+  assert.deepEqual(result.players, [[], []]);
+});
+
+test('truncateToLastCompleteRound : payload déjà tronqué côté client -> aucun effet (idempotent)', () => {
+  const alice = [answerAt(0), answerAt(1)];
+  const bob = [answerAt(0), answerAt(1)];
+
+  const result = truncateToLastCompleteRound([alice, bob]);
+  assert.equal(result.cancelled, false);
+  assert.deepEqual(result.players[0], alice);
+  assert.deepEqual(result.players[1], bob);
+});
+
+test('truncateToLastCompleteRound : N joueurs (Multi), un seul en retard suffit à invalider la manche', () => {
+  const alice = [answerAt(0), answerAt(1)];
+  const bob = [answerAt(0), answerAt(1)];
+  const carol = [answerAt(0)]; // Carol n'a pas fini la manche 1
+
+  const result = truncateToLastCompleteRound([alice, bob, carol]);
+  assert.equal(result.cancelled, false);
+  assert.equal(result.players[0]!.length, 1);
+  assert.equal(result.players[1]!.length, 1);
+  assert.equal(result.players[2]!.length, 1);
 });

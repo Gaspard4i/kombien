@@ -14,7 +14,7 @@
 </script>
 
 {#if route.name === 'home'}
-  <Home />
+  <Home cancelledGame={route.cancelledGame ?? false} />
 {:else if route.name === 'setup'}
   <Setup />
 {:else if route.name === 'game'}

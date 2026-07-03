@@ -57,6 +57,10 @@ export interface GameState {
   players: PlayerSlot[] | null;
   roundNumber: number;
   chooserIndex: number;
+  // Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2) : dernière manche COMPLETE
+  // (tous les joueurs ont fini leurs N questions), mise à jour uniquement par advanceRound().
+  // 0 = aucune manche complète encore (arrêt en 1ère manche -> partie annulée).
+  lastCompleteRoundNumber: number;
   // Questions communes (défaut v1) : un seul jeu de questions partagé par tous les joueurs.
   questions: Question[];
   // Questions différenciées (§5.1) : un jeu de questions PAR joueur, index aligné sur
@@ -75,6 +79,7 @@ let state = $state<GameState>({
   players: null,
   roundNumber: 1,
   chooserIndex: 0,
+  lastCompleteRoundNumber: 0,
   questions: [],
   perPlayerQuestions: null,
   questionIndex: 0,
@@ -89,6 +94,7 @@ export function startGame(config: GameConfig, pseudos: string[]): void {
   state.players = pseudos.map(emptyPlayer);
   state.roundNumber = 1;
   state.chooserIndex = 0;
+  state.lastCompleteRoundNumber = 0;
   state.questions = [];
   state.perPlayerQuestions = null;
   state.questionIndex = 0;
@@ -181,6 +187,17 @@ export function advanceQuestion(): boolean {
 }
 
 /**
+ * Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2) : à appeler dès que la manche en
+ * cours vient de se terminer PROPREMENT (tous les joueurs ont fini leurs N questions), AVANT
+ * de décider si la partie continue ou s'arrête ici (cible de points atteinte, cf.
+ * Game.svelte::handleNext) — sinon une partie qui se termine pile à la fin d'une manche
+ * perdrait à tort les points de cette dernière manche au moment du scoring final.
+ */
+export function markRoundComplete(): void {
+  state.lastCompleteRoundNumber = state.roundNumber;
+}
+
+/**
  * Chooser en rotation circulaire (GAME_DESIGN_V2.md §1.3) : le joueur i choisit la
  * catégorie du joueur i+1 mod N. Se réduit à l'alternance stricte v1 pour N=2.
  */
@@ -240,7 +257,29 @@ export function resetGame(): void {
   state.players = null;
   state.roundNumber = 1;
   state.chooserIndex = 0;
+  state.lastCompleteRoundNumber = 0;
   state.questions = [];
   state.perPlayerQuestions = null;
   state.questionIndex = 0;
+}
+
+/**
+ * Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2) : true si l'arrêt survient
+ * pendant la toute première manche, avant qu'elle soit complète -> la partie doit être
+ * annulée (pas d'écran de fin classé, retour accueil avec message explicite).
+ */
+export function isFirstRoundIncomplete(): boolean {
+  return state.lastCompleteRoundNumber === 0;
+}
+
+/**
+ * Réponses d'un joueur limitées aux manches COMPLETES (Lot 5 v2, §4.2 règles 2-3) : la
+ * manche en cours, si elle est entamée mais pas terminée par tout le monde, est jetée
+ * entièrement pour ce joueur — y compris s'il avait déjà répondu et marqué des points sur
+ * cette manche. C'est ce tableau tronqué, et lui seul, qui doit être envoyé à POST /games ;
+ * le serveur retronque par sécurité mais ne devrait jamais avoir à le faire si cette
+ * fonction est utilisée côté client (cf. End.svelte).
+ */
+export function answersUpToLastCompleteRound(player: PlayerSlot): RawAnswer[] {
+  return player.answers.filter((a) => a.roundIndex <= state.lastCompleteRoundNumber);
 }

@@ -28,9 +28,12 @@
     recordAnswer,
     advanceQuestion,
     advanceRound,
+    markRoundComplete,
     isEndConditionMet,
+    isFirstRoundIncomplete,
     activeCategorySlugs,
     effectiveThreshold,
+    resetGame,
   } from '../../lib/stores/gameStore.svelte';
   import AppShell from '../../lib/components/AppShell.svelte';
   import Card from '../../lib/components/Card.svelte';
@@ -263,6 +266,12 @@
       return;
     }
 
+    // Manche PROPREMENT terminée (tous les joueurs ont fini leurs N questions) : marquée
+    // comme "dernière manche complète" AVANT toute décision de fin de partie (Lot 5 v2,
+    // GAME_DESIGN_V2.md §4.2) — sinon une partie qui s'arrête pile ici (cible atteinte)
+    // perdrait à tort les points de cette manche au moment du scoring final (End.svelte).
+    markRoundComplete();
+
     // Fin de manche (GAME_DESIGN.md §9.4) : en mode "points", on vérifie la cible ici.
     // En mode "manual", pas d'arrêt automatique : le joueur clique "Terminer la partie".
     if (game.config!.endCondition === 'points' && isEndConditionMet()) {
@@ -303,7 +312,19 @@
     }
   }
 
-  function handleStopManual(): void {
+  // Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4) : "Terminer la partie" est
+  // disponible à tout moment, quelle que soit la condition de fin (limite de points ET
+  // arrêt manuel unifiés — avant ce lot, seul le mode manuel l'exposait, et seulement au
+  // reveal). Un arrêt en cours de manche jette la manche incomplète (score ET streak
+  // reviennent à l'état de la dernière manche complète, cf. gameStore.answersUpToLastCompleteRound
+  // consommé par End.svelte) ; un arrêt en 1ère manche incomplète annule la partie entière.
+  function handleStopGame(): void {
+    if (!window.confirm(t('common.end_game_confirm'))) return;
+    if (isFirstRoundIncomplete()) {
+      resetGame();
+      navigate({ name: 'home', cancelledGame: true });
+      return;
+    }
     navigate({ name: 'end' });
   }
 
@@ -360,9 +381,10 @@
     <header class="game__header">
       <span class="game__round">{t('round.label', { number: game.roundNumber })}</span>
       <div class="game__header-actions">
-        {#if game.config!.endCondition === 'manual' && step.name === 'reveal'}
-          <Button variant="secondary" onclick={handleStopManual}>{t('common.end_game')}</Button>
-        {/if}
+        <!-- Fin de partie assouplie (Lot 5 v2, §4) : disponible à tout moment, quelle que
+             soit la condition de fin (limite de points ET manuel, avant ce lot seul le
+             manuel l'exposait, et seulement au reveal). -->
+        <Button variant="secondary" onclick={handleStopGame}>{t('common.end_game')}</Button>
         <Button variant="ghost" onclick={handleQuitGame}>{t('nav.back')}</Button>
       </div>
     </header>

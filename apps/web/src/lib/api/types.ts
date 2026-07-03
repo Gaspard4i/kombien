@@ -94,5 +94,10 @@ export interface SubmitGamePlayerResult {
 
 export interface SubmitGameResult {
   is_draw: boolean;
+  // Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2 règle 4) : true si le serveur
+  // n'a trouvé aucune manche complète (payload vide au sens jeu — ne devrait jamais arriver
+  // si le client n'envoie que answersUpToLastCompleteRound() et bloque déjà ce cas avant
+  // d'appeler POST /games, cf. Game.svelte::handleStopGame). `players` est vide si true.
+  cancelled: boolean;
   players: SubmitGamePlayerResult[];
 }

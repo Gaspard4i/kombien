@@ -281,3 +281,49 @@ test('computeGameResult : Duel avec questions différenciées (GAME_DESIGN_V2.md
   assert.equal(bob.score, 2);
   assert.equal(bob.is_winner, true);
 });
+
+test('computeGameResult : fin de partie assouplie (GAME_DESIGN_V2.md §4.2), manche en cours incomplète -> points de la manche annulée ignorés', async () => {
+  // Manche 0 complète (les 2 joueurs ont répondu, question 1) : Alice 1 pt, Bob 0 pt.
+  // Manche 1 entamée par Alice seule (question 4, "yes" -> correct, 1 pt de plus) : Bob n'a
+  // pas encore répondu à cette manche -> elle doit être annulée pour Alice aussi.
+  const result = await computeGameResult(fakeDb(), [
+    {
+      pseudo: 'Alice',
+      answers: [
+        { mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 1000, durationSeconds: 0, binaryAnswer: 'yes' },
+        { mode: 'binaire', questionId: 4, roundIndex: 1, responseTimeMs: 1000, durationSeconds: 0, binaryAnswer: 'yes' },
+      ],
+    },
+    {
+      pseudo: 'Bob',
+      answers: [
+        { mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 1000, durationSeconds: 0, binaryAnswer: 'no' },
+      ],
+    },
+  ]);
+
+  const alice = result.players.find((p) => p.pseudo === 'Alice')!;
+  assert.equal(result.cancelled, false);
+  assert.equal(alice.score, 1); // seule la manche 0 compte, la réponse de la manche 1 est jetée
+});
+
+test('computeGameResult : arrêt pendant la toute première manche incomplète -> partie annulée, aucun résultat', async () => {
+  const result = await computeGameResult(fakeDb(), [
+    {
+      pseudo: 'Alice',
+      answers: [
+        { mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 1000, durationSeconds: 0, binaryAnswer: 'yes' },
+        { mode: 'binaire', questionId: 4, roundIndex: 0, responseTimeMs: 1000, durationSeconds: 0, binaryAnswer: 'yes' },
+      ],
+    },
+    {
+      pseudo: 'Bob',
+      answers: [
+        { mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 1000, durationSeconds: 0, binaryAnswer: 'no' },
+      ], // Bob n'a répondu qu'à 1 question de la manche 0 -> jamais complète
+    },
+  ]);
+
+  assert.equal(result.cancelled, true);
+  assert.equal(result.players.length, 0);
+});

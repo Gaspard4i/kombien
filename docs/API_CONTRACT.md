@@ -163,10 +163,27 @@ diviser tous les écarts absolus par la même constante ne change ni l'ordre ni 
 égalités : le classement est rigoureusement identique à l'écart absolu v1, zéro
 régression.
 
-Réponse 201 :
+Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4) : le client peut arrêter la partie
+à tout moment (`end_condition: "points"` ou `"manual"`, indifféremment). **Manche/round
+complet** : tous les joueurs de la partie ont répondu au même nombre de questions pour un
+`roundIndex` donné (le serveur ne connaît pas `questionsPerRound`, seule l'égalité entre
+joueurs actifs — au moins une réponse dans la partie — importe). Le client n'envoie **que**
+les réponses des manches complètes (troncature faite côté client avant l'appel, cf.
+`gameStore.svelte.ts`), mais le serveur reste **robuste par sécurité** : il retronque
+lui-même au dernier round complet avant tout scoring si le payload contient malgré tout une
+manche incomplète (`truncateToLastCompleteRound`, `domain/game.ts`) — les points/streaks de
+la manche incomplète ne comptent pour aucun joueur, y compris ceux qui avaient déjà répondu.
+
+Si l'arrêt survient pendant la toute première manche (aucun round n'est jamais complet) :
+réponse `{ is_draw: false, cancelled: true, players: [] }` — **partie annulée**, aucun
+résultat classé (pas de faux "0-0"). Le front doit alors revenir à l'accueil avec un message
+explicite plutôt qu'afficher un écran de fin.
+
+Réponse 201 (partie normalement terminée) :
 ```
 {
   is_draw,       // true ssi TOUS les joueurs sont à égalité (match nul général)
+  cancelled: false,
   players: [
     { pseudo, score, accuracy, best_streak, is_winner, session_exploits: [slug,...] }
   ]

@@ -9,7 +9,7 @@
   import { navigate } from '../lib/router/router.svelte';
   import { submitGame, ApiError } from '../lib/api/client';
   import type { SubmitGameResult } from '../lib/api/types';
-  import { getGameState, resetGame } from '../lib/stores/gameStore.svelte';
+  import { getGameState, resetGame, answersUpToLastCompleteRound } from '../lib/stores/gameStore.svelte';
   import AppShell from '../lib/components/AppShell.svelte';
   import Card from '../lib/components/Card.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -40,8 +40,19 @@
         end_condition: config.endCondition,
         target_score: config.endCondition === 'points' ? config.targetScore : undefined,
         rounds_played: game.roundNumber,
-        players: players.map((p) => ({ pseudo: p.pseudo, answers: p.answers })),
+        // Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2) : seules les réponses
+        // des manches COMPLETES sont envoyées — une manche entamée mais pas terminée par
+        // tout le monde ne doit compter pour personne, y compris ceux déjà passés dessus.
+        players: players.map((p) => ({ pseudo: p.pseudo, answers: answersUpToLastCompleteRound(p) })),
       });
+      // Garde-fou défensif : ne devrait jamais arriver (Game.svelte bloque déjà ce cas avant
+      // de naviguer vers /end), mais si le serveur renvoie malgré tout "annulée", pas d'écran
+      // de fin classé (GAME_DESIGN_V2.md §4.2 règle 4).
+      if (result.cancelled) {
+        resetGame();
+        navigate({ name: 'home', cancelledGame: true });
+        return;
+      }
     } catch (err) {
       submitError = err instanceof ApiError ? t(`errors.${err.code}`) : t('errors.network_error');
     } finally {

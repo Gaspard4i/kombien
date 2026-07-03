@@ -39,7 +39,8 @@
     "subtitle": "Le duo qui estime le temps qui passe.",
     "play": "Jouer",
     "contribute": "Proposer une question",
-    "select_language": "Choisir la langue"
+    "select_language": "Choisir la langue",
+    "game_cancelled": "Partie interrompue avant la fin de la 1ère manche — aucun résultat."
   },
   "setup": {
     "title": "Nouvelle partie",
@@ -296,6 +297,7 @@
     "confirm": "Confirmer",
     "quit_game": "Quitter la partie",
     "quit_game_confirm": "Quitter maintenant ? La partie en cours ne sera pas enregistrée.",
-    "end_game": "Terminer la partie"
+    "end_game": "Terminer la partie",
+    "end_game_confirm": "Terminer la partie maintenant ? Si la manche en cours n'est pas finie par tous les joueurs, elle ne comptera pas."
   }
 }

@@ -6,7 +6,7 @@
 // Réutilisable tel quel par le mode temps réel (round par round, lot 9) : ce
 // module ne connaît que des questions et des réponses, jamais Fastify/HTTP.
 
-import { computePlayerRun, decideWinners, type RawAnswer } from '../domain/game.ts';
+import { computePlayerRun, decideWinners, truncateToLastCompleteRound, type RawAnswer } from '../domain/game.ts';
 import { evaluateExploits, type ExploitSlug } from '../domain/exploits.ts';
 import type { DuelEstimate } from '../domain/scoring.ts';
 
@@ -31,6 +31,11 @@ export interface PlayerGameResult {
 
 export interface GameResult {
   is_draw: boolean;
+  // Fin de partie assouplie (GAME_DESIGN_V2.md §4.2 règle 4) : true si l'arrêt est survenu
+  // pendant la toute première manche, avant qu'elle soit complète -> aucun résultat classé,
+  // `players` est vide. Ne se produit jamais si le client a bien joué au moins une manche
+  // complète avant d'arrêter (cas nominal).
+  cancelled: boolean;
   players: PlayerGameResult[];
 }
 
@@ -139,16 +144,25 @@ export async function computeGameResult(
   db: QueryExecutor,
   players: GamePlayerInput[],
 ): Promise<GameResult> {
-  const allQuestionIds = players.flatMap((p) => p.answers.map((a) => a.questionId));
+  // Fin de partie assouplie (GAME_DESIGN_V2.md §4.2) : tronque au dernier round complet
+  // AVANT tout scoring, quel que soit ce que le client a envoyé (idéalement déjà tronqué
+  // côté client, cf. gameStore.svelte.ts, mais le serveur reste robuste à un payload brut).
+  const truncated = truncateToLastCompleteRound(players.map((p) => p.answers));
+  if (truncated.cancelled) {
+    return { is_draw: false, cancelled: true, players: [] };
+  }
+  const truncatedPlayers = players.map((p, i) => ({ ...p, answers: truncated.players[i]! }));
+
+  const allQuestionIds = truncatedPlayers.flatMap((p) => p.answers.map((a) => a.questionId));
   const truths = await loadQuestionTruths(db, allQuestionIds);
 
-  const withTruth = players.map((p) => ({ ...p, answers: withServerTruth(p.answers, truths) }));
+  const withTruth = truncatedPlayers.map((p) => ({ ...p, answers: withServerTruth(p.answers, truths) }));
   const withOpponents = withOpponentEstimates(withTruth);
 
   const computed = withOpponents.map((p) => computePlayerRun({ answers: p.answers }));
   const winner = decideWinners(computed.map((c) => c.finalScore));
 
-  const results: PlayerGameResult[] = players.map((input, i) => {
+  const results: PlayerGameResult[] = truncatedPlayers.map((input, i) => {
     const comp = computed[i]!;
     return {
       pseudo: input.pseudo,
@@ -162,5 +176,5 @@ export async function computeGameResult(
     };
   });
 
-  return { is_draw: winner.isDraw, players: results };
+  return { is_draw: winner.isDraw, cancelled: false, players: results };
 }

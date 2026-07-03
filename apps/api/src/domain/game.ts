@@ -147,6 +147,69 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
   };
 }
 
+// Fin de partie assouplie (GAME_DESIGN_V2.md §4) : un arrêt en cours de manche annule
+// entièrement cette manche pour tous les joueurs (score ET streak reviennent à l'état de
+// la dernière manche COMPLETE). "Manche complète" = tous les joueurs ont le même nombre de
+// réponses pour ce roundIndex (le serveur ne connaît pas questionsPerRound, mais il connaît
+// le nombre de joueurs : un round incomplet se voit à un déséquilibre entre joueurs).
+//
+// Robuste même si le client envoie déjà les réponses tronquées (cas nominal, cf.
+// gameStore.svelte.ts) : ce cas ne trouve alors aucun round incomplet et ne tronque rien.
+export interface TruncateResult {
+  // Réponses par joueur, tronquées au dernier round complet (même ordre que l'entrée).
+  players: RawAnswer[][];
+  // true si AUCUNE manche complète n'a pu être établie (arrêt pendant la toute première
+  // manche, GAME_DESIGN_V2.md §4.2 règle 4) : la partie doit être traitée comme annulée.
+  cancelled: boolean;
+}
+
+export function truncateToLastCompleteRound(playersAnswers: RawAnswer[][]): TruncateResult {
+  // Un joueur totalement absent de la partie (aucune réponse nulle part) n'entre jamais en
+  // jeu au sens de cette vérification : il ne peut pas, à lui seul, invalider une manche à
+  // laquelle il n'a jamais participé (payload dégénéré, jamais produit par gameStore.svelte.ts
+  // en pratique — tous les joueurs répondent forcément à chaque round joué).
+  const activePlayerIndices = playersAnswers
+    .map((answers, i) => (answers.length > 0 ? i : -1))
+    .filter((i) => i >= 0);
+
+  // Personne n'a jamais répondu (pas d'arrêt en cours de manche à proprement parler, juste
+  // une partie sans réponse) : rien à tronquer, laisse le calcul normal produire son 0-0.
+  if (activePlayerIndices.length === 0) {
+    return { players: playersAnswers, cancelled: false };
+  }
+
+  // Compte, par roundIndex, le nombre de réponses de chaque joueur ACTIF.
+  const countsByRound = new Map<number, Map<number, number>>();
+  activePlayerIndices.forEach((playerIndex) => {
+    for (const a of playersAnswers[playerIndex]!) {
+      const counts = countsByRound.get(a.roundIndex) ?? new Map<number, number>();
+      counts.set(playerIndex, (counts.get(playerIndex) ?? 0) + 1);
+      countsByRound.set(a.roundIndex, counts);
+    }
+  });
+
+  // Un round est complet ssi tous les joueurs actifs y ont répondu, avec le même nombre de
+  // réponses (le nombre exact de questions de la manche n'a pas besoin d'être connu du
+  // serveur, seule l'égalité entre joueurs actifs importe).
+  const completeRoundIndices = [...countsByRound.entries()]
+    .filter(([, counts]) => {
+      if (counts.size !== activePlayerIndices.length) return false;
+      const values = [...counts.values()];
+      return values.every((c) => c === values[0]);
+    })
+    .map(([roundIndex]) => roundIndex);
+
+  if (completeRoundIndices.length === 0) {
+    return { players: playersAnswers.map(() => []), cancelled: true };
+  }
+
+  const lastCompleteRound = Math.max(...completeRoundIndices);
+  return {
+    players: playersAnswers.map((answers) => answers.filter((a) => a.roundIndex <= lastCompleteRound)),
+    cancelled: false,
+  };
+}
+
 // Détermine le(s) vainqueur(s) d'une partie à N joueurs (GAME_DESIGN_V2.md §1.3) : le(s)
 // joueur(s) au score le plus élevé gagnent. isDraw = true seulement si TOUS les joueurs
 // sont à égalité (match nul général) ; une égalité de tête entre certains joueurs seulement

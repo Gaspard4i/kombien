@@ -6,6 +6,15 @@
   import Button from '../lib/components/Button.svelte';
   import LangSwitch from '../lib/components/LangSwitch.svelte';
   import Icon from '../lib/components/Icon.svelte';
+
+  interface Props {
+    // Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2 règle 4) : true si l'arrivée
+    // ici suit l'annulation d'une partie interrompue pendant sa toute première manche
+    // incomplète (pas d'erreur, juste une information : pas de résultat à afficher).
+    cancelledGame?: boolean;
+  }
+
+  const { cancelledGame = false }: Props = $props();
 </script>
 
 <AppShell>
@@ -17,6 +26,13 @@
     <KLogo size="display" />
     <p class="home__subtitle">{t('home.subtitle')}</p>
   </div>
+
+  {#if cancelledGame}
+    <div class="home__cancelled" role="status">
+      <Icon name="warning" size="md" />
+      <span>{t('home.game_cancelled')}</span>
+    </div>
+  {/if}
 
   <nav class="home__actions">
     <Button variant="primary" fullWidth onclick={() => navigate({ name: 'setup' })}>
@@ -50,6 +66,18 @@
     font-size: var(--fs-lead);
     font-family: var(--font-display);
     max-width: 24rem;
+  }
+
+  .home__cancelled {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-tight);
+    color: var(--amber-ink);
+    background: var(--amber-dim);
+    border-radius: var(--radius-card);
+    padding: var(--gap) var(--pad-card);
+    font-size: var(--fs-body);
+    margin-bottom: var(--gap);
   }
 
   .home__actions {

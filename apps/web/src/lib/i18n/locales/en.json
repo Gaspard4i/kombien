@@ -39,7 +39,8 @@
     "subtitle": "The duo that estimates how time flies.",
     "play": "Play",
     "contribute": "Suggest a question",
-    "select_language": "Choose language"
+    "select_language": "Choose language",
+    "game_cancelled": "Game interrupted before the end of round 1 — no result."
   },
   "setup": {
     "title": "New game",
@@ -296,6 +297,7 @@
     "confirm": "Confirm",
     "quit_game": "Quit game",
     "quit_game_confirm": "Quit now? The current game will not be saved.",
-    "end_game": "End game"
+    "end_game": "End game",
+    "end_game_confirm": "End the game now? If the current round isn't finished by every player, it won't count."
   }
 }
