@@ -7,7 +7,7 @@
   interface Props {
     /** Chaîne cible, un caractère = un rouleau (espaces inclus). */
     value: string;
-    size?: 'mega' | 'title' | 'label';
+    size?: 'mega' | 'title' | 'score' | 'label';
     /** Cascade gauche->droite (révélation de durée) ou tous les rouleaux ensemble (score/streak). */
     stagger?: boolean;
     /** Nombre de palettes parcourues avant de se figer (théâtral mais borné). */
@@ -178,6 +178,13 @@
     font-size: var(--fs-title);
     min-width: 1.1em;
     padding: 0.1em 0.15em;
+  }
+
+  /* Score de la barre de jeu : entre title et label, dimensionné pour le bloc joueur. */
+  .split-flap--score .split-flap__reel {
+    font-size: var(--fs-heading);
+    min-width: 0.85em;
+    padding: 0.08em 0.14em;
   }
 
   .split-flap--label .split-flap__reel {

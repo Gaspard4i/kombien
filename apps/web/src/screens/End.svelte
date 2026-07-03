@@ -18,6 +18,7 @@
   import Icon from '../lib/components/Icon.svelte';
   import KLogo from '../lib/components/KLogo.svelte';
   import Leaderboard from '../lib/components/Leaderboard.svelte';
+  import SplitFlap from '../lib/components/SplitFlap.svelte';
 
   const game = getGameState();
 
@@ -116,18 +117,27 @@
             {/if}
           </div>
 
+          <!-- Score final : le grand claquement de la vérité de la partie (DESIGN_SYSTEM.md
+               §5.3 en version réduite). Il "monte" jusqu'au total au montage de l'écran. -->
+          <div class="end__score">
+            <span class="end__score-label">{t('end.final_score')}</span>
+            <div class="end__score-flap">
+              <SplitFlap value={String(player.score)} size="title" stagger={false} spins={8} />
+            </div>
+          </div>
+
+          <!-- Chiffres du tableau : chaque stat vit sur une palette crème (§9.1). -->
           <dl class="end__stats">
             <div class="end__stat">
-              <dt>{t('end.final_score')}</dt>
-              <dd data-numeric>{player.score}</dd>
-            </div>
-            <div class="end__stat">
               <dt>{t('end.accuracy')}</dt>
-              <dd data-numeric>{Math.round(player.accuracy * 100)}%</dd>
+              <dd class="end__stat-flap" data-numeric>{Math.round(player.accuracy * 100)}%</dd>
             </div>
             <div class="end__stat">
               <dt>{t('end.best_streak')}</dt>
-              <dd data-numeric>{player.best_streak}</dd>
+              <dd class="end__stat-flap end__stat-flap--streak" data-numeric>
+                <Icon name="lightning" size="sm" />
+                {player.best_streak}
+              </dd>
             </div>
           </dl>
 
@@ -136,11 +146,15 @@
             {#if player.session_exploits.length === 0}
               <p class="end__no-badges">{t('end.no_exploits')}</p>
             {:else}
+              <!-- Palettes de récompense estampillées (DESIGN_SYSTEM.md §5.7) : palette crème
+                   carrée, glyphe centré, label dessous, liseré ambre. -->
               <div class="end__badge-list">
                 {#each player.session_exploits as slug (slug)}
                   <div class="end__badge">
-                    <Icon name="medal-military" size="md" />
-                    <span>{t(`exploits.${slug}`)}</span>
+                    <span class="end__badge-stamp">
+                      <Icon name="medal-military" size="md" />
+                    </span>
+                    <span class="end__badge-name">{t(`exploits.${slug}`)}</span>
                   </div>
                 {/each}
               </div>
@@ -203,17 +217,36 @@
     color: var(--ink-hi);
   }
 
+  .end__score {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-tight);
+    margin-bottom: var(--gap-wide);
+  }
+
+  .end__score-label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-mid);
+  }
+
+  .end__score-flap {
+    display: flex;
+  }
+
   .end__stats {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--gap-tight) var(--gap);
+    gap: var(--gap);
     margin: 0 0 var(--gap-wide) 0;
   }
 
   .end__stat {
     display: flex;
     flex-direction: column;
-    gap: 0.125rem;
+    gap: 0.375rem;
   }
 
   .end__stat dt {
@@ -224,12 +257,35 @@
     color: var(--ink-mid);
   }
 
-  .end__stat dd {
+  /* Palette crème : la donnée chiffrée vit sur le "papier" du tableau, charnière médiane
+     simulée par le gradient (DESIGN_SYSTEM.md §5.0). */
+  .end__stat-flap {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     margin: 0;
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: var(--fs-heading);
-    color: var(--ink-hi);
+    color: var(--flap-ink);
+    background-image: linear-gradient(
+      var(--flap) 0 calc(50% - 0.0625rem),
+      var(--hinge) 50%,
+      var(--flap) calc(50% + 0.0625rem) 100%
+    );
+    border-radius: var(--radius-flap);
+    box-shadow: 0 0.125rem 0 var(--hinge);
+    padding: 0.35rem 0.6rem;
+  }
+
+  .end__stat-flap--streak {
+    color: var(--amber-ink);
+    background-image: linear-gradient(
+      var(--amber) 0 calc(50% - 0.0625rem),
+      var(--hinge) 50%,
+      var(--amber) calc(50% + 0.0625rem) 100%
+    );
+    box-shadow: 0 0.125rem 0 var(--amber-dim);
   }
 
   .end__badges-title {
@@ -249,20 +305,46 @@
   .end__badge-list {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--gap-tight);
-    margin-top: 0.5rem;
+    gap: var(--gap);
+    margin-top: 0.625rem;
   }
 
+  /* Palette de récompense (DESIGN_SYSTEM.md §5.7) : carré crème estampillé, liseré ambre,
+     nom de l'exploit en label mono dessous. */
   .end__badge {
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.375rem 0.625rem;
-    background: var(--flap);
+    max-width: 6rem;
+    text-align: center;
+  }
+
+  .end__badge-stamp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
     color: var(--flap-ink);
-    border-radius: var(--radius-pill);
-    font-size: var(--fs-micro);
+    background-image: linear-gradient(
+      var(--flap) 0 calc(50% - 0.0625rem),
+      var(--hinge) 50%,
+      var(--flap) calc(50% + 0.0625rem) 100%
+    );
+    border: 0.125rem solid var(--amber);
+    border-radius: var(--radius-card);
+    box-shadow: 0 0.125rem 0 var(--hinge);
+  }
+
+  .end__badge-name {
+    font-family: var(--font-mono);
     font-weight: 700;
+    font-size: var(--fs-micro);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-hi);
+    line-height: 1.2;
   }
 
   .end__actions {

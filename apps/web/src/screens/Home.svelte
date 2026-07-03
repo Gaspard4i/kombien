@@ -68,16 +68,25 @@
     max-width: 24rem;
   }
 
+  /* Bandeau d'annonce (pas de texte sur --amber-dim, interdit §2.2) : caisson surélevé,
+     charnière ambre en tête, texte crème lisible AA, icône ambre. */
   .home__cancelled {
     display: flex;
     align-items: center;
     gap: var(--gap-tight);
-    color: var(--amber-ink);
-    background: var(--amber-dim);
+    color: var(--ink-hi);
+    background: var(--board-raised);
+    border-top: 0.125rem solid var(--amber);
     border-radius: var(--radius-card);
+    box-shadow: 0 0.125rem 0 var(--hinge);
     padding: var(--gap) var(--pad-card);
     font-size: var(--fs-body);
     margin-bottom: var(--gap);
+  }
+
+  .home__cancelled :global(.icon) {
+    color: var(--amber);
+    flex-shrink: 0;
   }
 
   .home__actions {

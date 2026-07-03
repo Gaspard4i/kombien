@@ -6,6 +6,7 @@
   import type { PlayerSlot } from '../../lib/stores/gameStore.svelte';
   import { streakMultiplier } from '../../lib/domain/scoring';
   import Icon from '../../lib/components/Icon.svelte';
+  import SplitFlap from '../../lib/components/SplitFlap.svelte';
 
   interface Props {
     players: PlayerSlot[];
@@ -20,23 +21,52 @@
   function litSegments(streak: number): number {
     return Math.min(5, streak);
   }
+
+  // Casse de série : détecte le passage d'un streak >= 3 (multiplicateur actif) à 0 pour
+  // déclencher le flash --signal et le retour des segments (DESIGN_SYSTEM.md §5.6). On
+  // mémorise le streak précédent par joueur ; le flash est armé à la retombée puis désarmé
+  // après l'animation CSS. Init vide -> rempli au premier effect (pas de capture de valeur
+  // initiale de `players`, cf. svelte state_referenced_locally).
+  let previousStreaks = $state<number[]>([]);
+  let breaking = $state<boolean[]>([]);
+
+  $effect(() => {
+    players.forEach((p, i) => {
+      const prev = previousStreaks[i];
+      if (prev !== undefined && prev >= 3 && p.streak === 0) {
+        breaking[i] = true;
+        setTimeout(() => (breaking[i] = false), 360);
+      }
+      previousStreaks[i] = p.streak;
+    });
+  });
 </script>
 
 <div class="score-bar">
   <div class="score-bar__players">
     {#each players as player, i (player.pseudo)}
-      <div class="score-bar__player" class:score-bar__player--active={activeIndex === i}>
+      {@const multiplier = streakMultiplier(player.streak)}
+      <div
+        class="score-bar__player"
+        class:score-bar__player--active={activeIndex === i}
+        class:score-bar__player--x3={multiplier >= 3}
+        class:score-bar__player--breaking={breaking[i]}
+      >
         <span class="score-bar__pseudo">{player.pseudo}</span>
-        <span class="score-bar__score" data-numeric>{player.score}</span>
-        <div class="score-bar__streak">
+        <!-- Score en mini split-flap : le chiffre "monte" en claquant à chaque manche
+             gagnée (DESIGN_SYSTEM.md §5.6), pas de cascade (stagger=false). -->
+        <div class="score-bar__score">
+          <SplitFlap value={String(player.score)} size="score" stagger={false} spins={6} />
+        </div>
+        <div class="score-bar__streak" class:score-bar__streak--on={multiplier > 1}>
           <Icon name="lightning" size="sm" />
           <div class="score-bar__gauge">
             {#each { length: 5 } as _, s (s)}
               <span class="score-bar__segment" class:score-bar__segment--lit={s < litSegments(player.streak)}></span>
             {/each}
           </div>
-          {#if streakMultiplier(player.streak) > 1}
-            <span class="score-bar__multiplier">{t('score.multiplier', { value: streakMultiplier(player.streak) })}</span>
+          {#if multiplier > 1}
+            <span class="score-bar__multiplier">{t('score.multiplier', { value: multiplier })}</span>
           {/if}
         </div>
         <div class="score-bar__hinge" aria-hidden="true"></div>
@@ -126,16 +156,10 @@
     white-space: nowrap;
   }
 
+  /* Le score vit sur une palette : le SplitFlap intérieur (size label) porte déjà le fond
+     crème et la charnière ; ce wrapper ne fait que le cadrer à gauche. */
   .score-bar__score {
-    font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: var(--fs-title);
-    color: var(--flap-ink);
-    background: var(--flap);
-    border-radius: var(--radius-flap);
-    padding: 0.1em 0.4em;
     align-self: flex-start;
-    box-shadow: 0 0.125rem 0 var(--hinge);
   }
 
   .score-bar__streak {
@@ -143,6 +167,10 @@
     align-items: center;
     gap: 0.25rem;
     color: var(--amber-dim);
+  }
+
+  .score-bar__streak--on {
+    color: var(--amber);
   }
 
   .score-bar__gauge {
@@ -155,6 +183,7 @@
     height: 0.75rem;
     border-radius: var(--radius-flap);
     background: var(--amber-dim);
+    transition: background var(--dur-flap) var(--ease-flap);
   }
 
   .score-bar__segment--lit {
@@ -166,5 +195,49 @@
     font-weight: 700;
     font-size: var(--fs-micro);
     color: var(--amber);
+  }
+
+  /* ×3 : pulse ambre discret sur le bloc joueur (le "en feu" du DESIGN_SYSTEM §5.6). */
+  .score-bar__player--x3 {
+    animation: streak-pulse 1.4s var(--ease-out) infinite;
+  }
+
+  @keyframes streak-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+    50% {
+      box-shadow: 0 0 0 0.125rem var(--amber-dim);
+    }
+  }
+
+  /* Casse de série : flash rouge signal bref sur le bloc + segments qui retombent
+     (géré par le passage à --lit=false, déjà animé via .score-bar__segment). */
+  .score-bar__player--breaking {
+    animation: streak-break 0.36s var(--ease-flap);
+  }
+
+  @keyframes streak-break {
+    0% {
+      box-shadow: 0 0 0 0.125rem var(--signal);
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .score-bar__player--x3,
+    .score-bar__player--breaking {
+      animation: none;
+    }
+    /* Conserve l'état x3 lisible sans mouvement : liseré statique. */
+    .score-bar__player--x3 {
+      box-shadow: 0 0 0 0.125rem var(--amber-dim);
+    }
+    .score-bar__segment {
+      transition: none;
+    }
   }
 </style>

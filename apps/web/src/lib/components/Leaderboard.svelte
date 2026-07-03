@@ -107,8 +107,10 @@
     text-align: center;
   }
 
+  /* Sur la ligne de tête (fond --amber-dim), le rang passe en crème : --amber sur
+     --amber-dim n'atteint pas AA (§2.2). */
   .leaderboard__row--lead .leaderboard__rank {
-    color: var(--amber);
+    color: var(--ink-hi);
   }
 
   .leaderboard__identity {
@@ -117,6 +119,11 @@
     gap: 0.375rem;
     min-width: 0;
     color: var(--amber);
+  }
+
+  /* Sur la ligne de tête, l'icône (sceau) passe en crème pour rester visible sur --amber-dim. */
+  .leaderboard__row--lead .leaderboard__identity {
+    color: var(--ink-hi);
   }
 
   .leaderboard__pseudo {

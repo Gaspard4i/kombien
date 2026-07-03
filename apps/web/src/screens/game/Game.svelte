@@ -510,13 +510,15 @@
     margin-bottom: var(--gap);
   }
 
+  /* Tag de mode/catégorie : mini-palette ambre-dim (§5.5). Texte en crème --ink-hi (pas
+     --amber-ink foncé, illisible sur amber-dim — §2.2) : contraste AA préservé. */
   .game__tag {
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: var(--fs-micro);
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--amber-ink);
+    color: var(--ink-hi);
     background: var(--amber-dim);
     padding: 0.25rem 0.5rem;
     border-radius: var(--radius-pill);

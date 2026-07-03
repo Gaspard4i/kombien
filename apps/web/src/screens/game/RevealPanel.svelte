@@ -196,11 +196,21 @@
     color: var(--signal);
   }
 
+  /* Points gagnés sur mini-palette ambre : c'est du "temps actif" marqué (DESIGN_SYSTEM.md
+     §2.1), pas un simple libellé coloré. */
   .reveal__points {
     font-family: var(--font-mono);
     font-weight: 700;
-    font-size: var(--fs-body);
-    color: var(--amber);
+    font-size: var(--fs-label);
+    color: var(--amber-ink);
+    background-image: linear-gradient(
+      var(--amber) 0 calc(50% - 0.0625rem),
+      var(--hinge) 50%,
+      var(--amber) calc(50% + 0.0625rem) 100%
+    );
+    border-radius: var(--radius-flap);
+    box-shadow: 0 0.125rem 0 var(--amber-dim);
+    padding: 0.2rem 0.5rem;
   }
 
   .reveal__report {
