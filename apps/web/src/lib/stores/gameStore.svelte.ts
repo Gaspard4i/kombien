@@ -39,6 +39,12 @@ export interface GameConfig {
   endCondition: EndCondition;
   targetScore: number;
   questionsPerRound: number;
+  // Questions différenciées (Lot 3 v2, GAME_DESIGN_V2.md §5.1) : chaque joueur reçoit, à
+  // chaque tour de la manche, une question distincte tirée du même pool, plutôt que la
+  // même question pour tous (défaut v1). Obligatoire (toujours true) en mode 'per_player'
+  // (§2.4 : les pools eux-mêmes diffèrent, donc les questions ne peuvent pas être
+  // communes) ; option cochable indépendamment avec les 3 autres modes de thème.
+  differentiatedQuestions: boolean;
 }
 
 export interface GameState {
@@ -46,7 +52,12 @@ export interface GameState {
   players: PlayerSlot[] | null;
   roundNumber: number;
   chooserIndex: number;
+  // Questions communes (défaut v1) : un seul jeu de questions partagé par tous les joueurs.
   questions: Question[];
+  // Questions différenciées (§5.1) : un jeu de questions PAR joueur, index aligné sur
+  // PlayerSlot[]. `questionIndex` reste commun (même tour de manche pour tout le monde),
+  // seule la question réellement affichée diffère — cf. currentQuestionFor().
+  perPlayerQuestions: Question[][] | null;
   questionIndex: number;
 }
 
@@ -60,6 +71,7 @@ let state = $state<GameState>({
   roundNumber: 1,
   chooserIndex: 0,
   questions: [],
+  perPlayerQuestions: null,
   questionIndex: 0,
 });
 
@@ -73,16 +85,49 @@ export function startGame(config: GameConfig, pseudos: string[]): void {
   state.roundNumber = 1;
   state.chooserIndex = 0;
   state.questions = [];
+  state.perPlayerQuestions = null;
   state.questionIndex = 0;
 }
 
+/** Questions communes (défaut v1) : un seul jeu de questions partagé par tous les joueurs. */
 export function setRoundQuestions(questions: Question[]): void {
   state.questions = questions;
+  state.perPlayerQuestions = null;
   state.questionIndex = 0;
 }
 
-export function currentQuestion(): Question | null {
+/**
+ * Questions différenciées (Lot 3, GAME_DESIGN_V2.md §5.1) : un jeu de questions PAR joueur,
+ * index aligné sur PlayerSlot[] (même ordre que la réponse de GET /questions/distinct).
+ */
+export function setPerPlayerRoundQuestions(perPlayerQuestions: Question[][]): void {
+  state.questions = [];
+  state.perPlayerQuestions = perPlayerQuestions;
+  state.questionIndex = 0;
+}
+
+export function isDifferentiated(): boolean {
+  return state.perPlayerQuestions !== null;
+}
+
+/**
+ * Question courante pour un joueur donné : en mode commun, la même pour tout le monde
+ * (playerIndex ignoré) ; en mode différencié, celle de SON tableau à l'index de tour
+ * courant (§5.1 : questionIndex reste commun, seule la question diffère par joueur).
+ */
+export function currentQuestion(playerIndex = 0): Question | null {
+  if (state.perPlayerQuestions) {
+    return state.perPlayerQuestions[playerIndex]?.[state.questionIndex] ?? null;
+  }
   return state.questions[state.questionIndex] ?? null;
+}
+
+/** Nombre de questions de la manche en cours, quel que soit le mode (commun/différencié). */
+export function roundQuestionCount(): number {
+  if (state.perPlayerQuestions) {
+    return state.perPlayerQuestions[0]?.length ?? 0;
+  }
+  return state.questions.length;
 }
 
 export function playerCount(): number {
@@ -103,7 +148,7 @@ export function recordAnswer(playerIndex: number, answer: RawAnswer, basePoints:
 }
 
 export function advanceQuestion(): boolean {
-  if (state.questionIndex + 1 < state.questions.length) {
+  if (state.questionIndex + 1 < roundQuestionCount()) {
     state.questionIndex += 1;
     return true;
   }
@@ -119,6 +164,7 @@ export function advanceRound(): void {
   const n = state.players?.length ?? 1;
   state.chooserIndex = (state.chooserIndex + 1) % n;
   state.questions = [];
+  state.perPlayerQuestions = null;
   state.questionIndex = 0;
 }
 
@@ -128,11 +174,11 @@ export function advanceRound(): void {
  * pré-déterminé" : c'est le cas du mode rotation, où la catégorie est choisie manche
  * après manche via CategoryPick (Game.svelte gère ce cas séparément).
  *
- * Note lot 2 (pas lot 3) : en mode 'per_player', les questions ne sont PAS encore
- * différenciées par joueur (Lot 3, hors périmètre ici) — seule la catégorie diffère
- * d'un joueur à l'autre. Le pool de tirage de la manche est donc l'UNION des thèmes de
- * tous les joueurs (même mécanique que 'multi'), ce qui reste cohérent avec le contrat
- * "questions communes" tant que le Lot 3 n'est pas fait.
+ * Le pool renvoyé est l'UNION des thèmes actifs (mode 'multi' et 'per_player' tirent tous
+ * deux dans une union de catégories, cf. GAME_DESIGN_V2.md §2.3-2.4) : ce que fait ce pool
+ * une fois résolu (questions communes ou différenciées par joueur, Lot 3 §5.1) est décidé
+ * séparément par `GameConfig.differentiatedQuestions` (cf. Game.svelte, qui choisit entre
+ * getQuestionsForCategories et getDistinctQuestionsForPlayers selon ce flag).
  */
 export function activeCategorySlugs(selection: ThemeSelection): string[] | null {
   switch (selection.mode) {
@@ -148,6 +194,16 @@ export function activeCategorySlugs(selection: ThemeSelection): string[] | null 
   }
 }
 
+/**
+ * Les questions différenciées sont OBLIGATOIRES en mode 'per_player' (GAME_DESIGN_V2.md
+ * §2.4 et §5.1 : les pools eux-mêmes diffèrent par joueur, "questions communes" n'a pas de
+ * sens par construction). Avec les 3 autres modes de thème, c'est une option cochable au
+ * setup (GameConfig.differentiatedQuestions).
+ */
+export function isDifferentiationForced(selection: ThemeSelection): boolean {
+  return selection.mode === 'per_player';
+}
+
 export function isEndConditionMet(): boolean {
   if (!state.config || !state.players) return false;
   if (state.config.endCondition !== 'points') return false;
@@ -160,5 +216,6 @@ export function resetGame(): void {
   state.roundNumber = 1;
   state.chooserIndex = 0;
   state.questions = [];
+  state.perPlayerQuestions = null;
   state.questionIndex = 0;
 }

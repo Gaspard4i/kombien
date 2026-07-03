@@ -13,6 +13,10 @@
     pseudo: string;
     isGoodAnswer: boolean;
     points: number;
+    // Questions différenciées (Lot 3, GAME_DESIGN_V2.md §5) : présent seulement quand la
+    // durée de CE joueur diffère de `durationSeconds` (sa propre question). Absent en mode
+    // commun -> un seul split-flap partagé reste LE moment fort (comportement v1 inchangé).
+    ownDurationSeconds?: number;
   }
 
   interface Props {
@@ -26,7 +30,14 @@
 
   const { questionId, lang, durationSeconds, players, isLastQuestionOfRound, onnext }: Props = $props();
 
+  // Différencié ssi au moins un joueur porte sa propre durée (sinon tous répondent à la
+  // même question -> un seul split-flap géant partagé, comportement v1).
+  const isDifferentiated = $derived(players.some((p) => p.ownDurationSeconds !== undefined));
   const formatted = $derived(formatSplitFlapDuration(durationSeconds, lang));
+
+  function playerFormatted(player: PlayerReveal): string {
+    return formatSplitFlapDuration(player.ownDurationSeconds ?? durationSeconds, lang);
+  }
 
   // Le signalement est réinitialisé à chaque nouvelle question (nouvelle questionId).
   let reportState = $state<'idle' | 'submitting' | 'done' | 'error'>('idle');
@@ -49,13 +60,23 @@
 <div class="reveal">
   <span class="reveal__label">{t('reveal.real_duration')}</span>
 
-  <div class="reveal__flap">
-    <SplitFlap value={formatted} size="mega" />
-  </div>
+  {#if !isDifferentiated}
+    <!-- Questions communes (v1) : LE moment fort, un seul split-flap partagé. -->
+    <div class="reveal__flap">
+      <SplitFlap value={formatted} size="mega" />
+    </div>
+  {/if}
 
   <div class="reveal__players">
     {#each players as player (player.pseudo)}
       <div class="reveal__player" class:reveal__player--correct={player.isGoodAnswer} class:reveal__player--incorrect={!player.isGoodAnswer}>
+        {#if isDifferentiated}
+          <!-- Questions différenciées (Lot 3, GAME_DESIGN_V2.md §5) : plus de durée unique à
+               révéler en tête -> chaque joueur voit la sienne, juste au-dessus de son résultat. -->
+          <div class="reveal__player-flap">
+            <SplitFlap value={playerFormatted(player)} size="title" />
+          </div>
+        {/if}
         <span class="reveal__pseudo">{player.pseudo}</span>
         <span class="reveal__result">
           <Icon name={player.isGoodAnswer ? 'check' : 'warning'} size="sm" />
@@ -122,6 +143,7 @@
 
   .reveal__player {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--gap-tight);
@@ -133,6 +155,14 @@
 
   .reveal__player--correct {
     border-left-color: var(--go);
+  }
+
+  .reveal__player-flap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    order: -1;
+    margin-bottom: 0.25rem;
   }
 
   .reveal__player--incorrect {

@@ -9,7 +9,12 @@
   import { ApiError } from '../lib/api/client';
   import type { Category } from '../lib/api/types';
   import type { GameMode } from '../lib/domain/scoring';
-  import { startGame, type EndCondition, type ThemeSelection } from '../lib/stores/gameStore.svelte';
+  import {
+    startGame,
+    isDifferentiationForced,
+    type EndCondition,
+    type ThemeSelection,
+  } from '../lib/stores/gameStore.svelte';
   import AppShell from '../lib/components/AppShell.svelte';
   import Card from '../lib/components/Card.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -29,6 +34,10 @@
   let categories = $state<Category[]>([]);
   let selectedCategorySlug = $state<string | null>(null);
   let themeSelection = $state<ThemeSelection>({ mode: 'rotation' });
+  // Questions différenciées (Lot 3, GAME_DESIGN_V2.md §5.1) : option indépendante du mode de
+  // thème, sauf 'per_player' où elle est obligatoire (isDifferentiationForced) — cf. l'effet
+  // ci-dessous qui la verrouille à true dans ce cas.
+  let differentiatedQuestions = $state(false);
   let endCondition = $state<EndCondition>('points');
   let targetScore = $state(50);
   let loadingCategories = $state(true);
@@ -43,6 +52,15 @@
     } finally {
       loadingCategories = false;
     }
+  });
+
+  // Verrouillée à true en mode 'per_player' (GAME_DESIGN_V2.md §2.4) : les pools diffèrent
+  // déjà par joueur, "questions communes" n'a pas de sens. Le toggle reste visible mais
+  // désactivé pour ne pas laisser croire à un choix possible (cf. rendu ci-dessous).
+  const differentiationForced = $derived(isDifferentiationForced(themeSelection));
+
+  $effect(() => {
+    if (differentiationForced) differentiatedQuestions = true;
   });
 
   function addPlayer(): void {
@@ -102,6 +120,7 @@
         endCondition,
         targetScore,
         questionsPerRound: QUESTIONS_PER_ROUND,
+        differentiatedQuestions: differentiationForced || differentiatedQuestions,
       },
       pseudos.map((p) => p.trim()),
     );
@@ -204,6 +223,18 @@
         selection={themeSelection}
         onchange={(next) => (themeSelection = next)}
       />
+      <button
+        type="button"
+        class="setup__differentiated"
+        class:setup__differentiated--selected={differentiatedQuestions}
+        disabled={differentiationForced}
+        onclick={() => (differentiatedQuestions = !differentiatedQuestions)}
+      >
+        <span class="setup__differentiated-name">{t('setup.differentiated_questions')}</span>
+        <span class="setup__differentiated-desc">
+          {t(differentiationForced ? 'setup.differentiated_questions_forced' : 'setup.differentiated_questions_desc')}
+        </span>
+      </button>
     {/if}
   </section>
 
@@ -428,6 +459,43 @@
   .setup__empty {
     color: var(--ink-mid);
     font-size: var(--fs-body);
+  }
+
+  .setup__differentiated {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-start;
+    min-height: var(--touch-min);
+    padding: 0.75rem 1rem;
+    margin-top: var(--gap-tight);
+    background: var(--board-raised);
+    border: 1px solid var(--ink-lo);
+    border-radius: var(--radius-card);
+    color: var(--ink-hi);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .setup__differentiated:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+
+  .setup__differentiated--selected {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px var(--amber);
+  }
+
+  .setup__differentiated-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--fs-body);
+  }
+
+  .setup__differentiated-desc {
+    font-size: var(--fs-micro);
+    color: var(--ink-mid);
   }
 
   .setup__end-condition {

@@ -92,7 +92,11 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
       basePoints = r.points;
       exactMagnitude = r.exact;
     } else {
-      const self: DuelEstimate = { value: raw.estValue!, unit: raw.estUnit! };
+      // durationSeconds porté explicitement : en mode différencié (GAME_DESIGN_V2.md §5),
+      // chaque joueur a sa propre question donc sa propre durée réelle. En mode "questions
+      // communes" toutes les durées sont identiques, scoreDuelRanked s'y réduit à l'écart
+      // absolu v1 (cf. commentaire scoring.ts).
+      const self: DuelEstimate = { value: raw.estValue!, unit: raw.estUnit!, durationSeconds: raw.durationSeconds };
       const opponents = resolveOpponentEstimates(raw);
       const estimates = [self, ...opponents];
       const points = scoreDuelRanked(estimates, raw.durationSeconds);

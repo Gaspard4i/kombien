@@ -43,6 +43,10 @@ export function scoreMagnitude(chosenUnit: UnitSlug, durationSeconds: number): M
 export interface DuelEstimate {
   value: number;
   unit: UnitSlug;
+  // Questions différenciées (GAME_DESIGN_V2.md §5.3) : chaque joueur peut avoir sa
+  // propre question, donc sa propre durée réelle. Absent = durée commune (v1/Duo
+  // standard, cf. paramètre `durationSeconds` de scoreDuelRanked).
+  durationSeconds?: number;
 }
 
 export interface DuelResult {
@@ -52,14 +56,21 @@ export interface DuelResult {
   errorB: number;
 }
 
-// GAME_DESIGN_V2.md §1.3 — Duel à N joueurs : seul le groupe de tête (le ou les joueurs au
-// plus petit écart absolu) marque des points. Le groupe de tête se partage un pool fixe de
-// 2 points, arrondi à l'entier inférieur : floor(2 / k) où k = nombre de joueurs ex-æquo au
-// meilleur écart. Tous les autres joueurs (hors du groupe de tête) marquent 0. Se réduit
-// exactement au barème v1 pour 2 joueurs (k=1 -> 2/0, k=2 -> 1/1 en cas d'égalité) : aucune
-// régression pour les parties Duo existantes.
+// GAME_DESIGN_V2.md §1.3 et §5.3 — Duel à N joueurs : seul le groupe de tête marque des
+// points, qu'il partage à parts égales (floor(2 / k), k = nombre d'ex-æquo). Le rang se
+// calcule sur l'ÉCART RELATIF (|estimation - durée| / durée) et non l'écart absolu, dès
+// que les questions sont différenciées par joueur (§5.3) : sans cela, un joueur tombé sur
+// une longue durée serait mécaniquement avantagé (60s d'écart est énorme sur 2 minutes,
+// négligeable sur un an). `durationSeconds` (paramètre) reste la durée par défaut pour
+// toute estimation qui ne porte pas la sienne (`DuelEstimate.durationSeconds` absent) —
+// c'est le cas v1/questions communes : diviser deux écarts absolus par la MÊME constante
+// ne change ni leur ordre ni les égalités, donc le classement (et les points) sont
+// rigoureusement identiques à l'écart absolu v1. Aucune régression.
 export function scoreDuelRanked(estimates: DuelEstimate[], durationSeconds: number): number[] {
-  const errors = estimates.map((e) => Math.abs(toSeconds(e.value, e.unit) - durationSeconds));
+  const errors = estimates.map((e) => {
+    const trueDuration = e.durationSeconds ?? durationSeconds;
+    return Math.abs(toSeconds(e.value, e.unit) - trueDuration) / trueDuration;
+  });
   const bestError = Math.min(...errors);
   const leadCount = errors.filter((e) => e === bestError).length;
   const leadPoints = Math.floor(2 / leadCount);

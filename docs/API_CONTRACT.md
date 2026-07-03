@@ -27,6 +27,31 @@ et `GET /players/:pseudo` sont **supprimés**. Le seul classement qui existe est
 celui de la session de jeu en cours, dérivé côté client à partir de la réponse
 de `POST /games`.
 
+### `GET /questions/distinct?categories=slug1,slug2&count=5&players=3`
+Tirage en sous-ensembles **disjoints**, un par joueur (Lot 3 v2, GAME_DESIGN_V2.md
+§5.2) : option "questions différenciées" — chaque joueur reçoit `count` questions
+qui lui sont propres, tirées de l'union des catégories données. Réponse :
+`Question[][]`, un tableau par joueur, **même ordre que le tableau `players` envoyé
+à `POST /games`**.
+
+Tirage **applicatif** (fetch de tout le pool approuvé, mélangé côté SQL, puis
+partition en mémoire) — jamais un `ORDER BY random()` par joueur, qui ne
+garantirait pas la disjonction. Priorité de dégradation si le pool est trop petit
+pour tout garantir (GAME_DESIGN_V2.md §5.2) :
+1. **Non-répétition intra-joueur** (jamais sacrifiée tant que `pool.length >=
+   count`) : un joueur ne revoit jamais deux fois la même question dans ce tirage.
+2. **Non-répétition inter-joueurs** (relâchée en premier) : au-delà de la portion
+   du pool qui peut être répartie en tranches totalement disjointes, les joueurs
+   suivants repiochent dans le pool complet (tranches décalées entre joueurs pour
+   rester équitable), pouvant recouper un autre joueur mais jamais eux-mêmes.
+
+Si `pool.length < count` (catégorie trop restreinte même pour un seul joueur), la
+réponse contient moins de `count` questions pour ce joueur — répétition intra-joueur
+en dernier recours, cf. v1 §2.6.
+`players` requis, 2 à 8 (aligné sur `POST /games`). `categories` requis, mêmes
+règles que `GET /questions` (dédoublonnage, 404 `category_not_found` si un slug est
+inconnu). `count` 1..50 (défaut 5).
+
 ## Écriture
 
 ### `POST /questions` (contribution → pending)
@@ -80,14 +105,27 @@ Duel à N joueurs (lot 1) : le client envoie toujours `estValue`/`estUnit` (sa
 propre estimation) par réponse ; `opponentEstValue`/`opponentEstUnit` (un seul
 adversaire, contrat v1) restent acceptés mais ne sont **jamais lus** dès que la
 partie compte plus de 2 joueurs. Le serveur reconstruit lui-même, pour chaque
-`questionId`, la liste des estimations de **tous** les autres joueurs de la
-partie à partir de leurs `estValue`/`estUnit` réels (jamais depuis les champs
-`opponentEst*` déclarés par le client — anti-triche), puis applique le barème
+**`roundIndex`** (pas `questionId`, cf. questions différenciées ci-dessous), la
+liste des estimations de **tous** les autres joueurs de la partie à partir de
+leurs `estValue`/`estUnit` réels (jamais depuis les champs `opponentEst*`
+déclarés par le client — anti-triche), puis applique le barème
 (GAME_DESIGN_V2.md §1.3) : **seul le groupe de tête** (le ou les joueurs au
-plus petit écart absolu) marque des points, en se partageant un pool fixe de 2
+plus petit écart) marque des points, en se partageant un pool fixe de 2
 points (`floor(2 / k)`, k = nombre d'ex-æquo en tête) ; tous les autres joueurs
 marquent 0. Se réduit exactement au barème Duel v1 pour 2 joueurs (k=1 -> 2/0,
 k=2 en cas d'égalité -> 1/1).
+
+Duel + questions différenciées (Lot 3 v2, GAME_DESIGN_V2.md §5.3) : chaque
+joueur a son propre `questionId` sur un même `roundIndex` (tiré via `GET
+/questions/distinct`), donc sa propre `duration_seconds` serveur. Le classement
+bascule alors sur l'**écart relatif** (`|estimation - durée| / durée`) plutôt que
+l'écart absolu, pour rester comparable entre des questions de durées différentes
+— sinon un joueur tombé sur une longue durée serait mécaniquement avantagé (60s
+d'écart est énorme sur 2 minutes, négligeable sur un an). En mode "questions
+communes" (toutes les réponses d'un round partagent le même `questionId`/durée),
+diviser tous les écarts absolus par la même constante ne change ni l'ordre ni les
+égalités : le classement est rigoureusement identique à l'écart absolu v1, zéro
+régression.
 
 Réponse 201 :
 ```

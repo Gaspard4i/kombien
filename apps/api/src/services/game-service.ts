@@ -86,20 +86,27 @@ function withServerTruth(answers: RawAnswer[], truths: Map<number, QuestionTruth
 }
 
 // Le classement Duel à N joueurs (GAME_DESIGN_V2.md §1.3) compare les estimations de TOUS
-// les joueurs sur une même question : on ne peut pas se fier au opponentEstValue/Unit
-// unique envoyé par le client (contrat v1, un seul adversaire). On regroupe donc les
-// réponses duel de tous les joueurs par questionId, et on redistribue à chaque joueur la
-// liste des estimations adverses réellement reçues sur cette question — jamais celles
-// prétendues par le client (anti-triche, cohérent avec withServerTruth).
+// les joueurs sur un même TOUR de manche : on ne peut pas se fier au opponentEstValue/Unit
+// unique envoyé par le client (contrat v1, un seul adversaire). On regroupe par roundIndex
+// plutôt que par questionId (GAME_DESIGN_V2.md §5.3, questions différenciées) : en mode
+// "questions communes" tous les joueurs partagent le même questionId pour un round donné,
+// grouper par round est donc strictement équivalent à grouper par questionId (zéro
+// régression) ; en mode différencié, chaque joueur a SON questionId propre sur ce round et
+// c'est justement ce qui permet de les faire s'affronter malgré des questions distinctes.
+// Chaque estimation adverse porte sa propre durée serveur (withServerTruth), consommée par
+// scoreDuelRanked en écart relatif dès qu'elle diffère de la durée du joueur courant.
 function withOpponentEstimates(players: GamePlayerInput[]): GamePlayerInput[] {
-  // questionId -> [{ playerIndex, estimate }] pour toutes les réponses duel de la partie.
-  const byQuestion = new Map<number, { playerIndex: number; estimate: DuelEstimate }[]>();
+  // roundIndex -> [{ playerIndex, estimate }] pour toutes les réponses duel de la partie.
+  const byRound = new Map<number, { playerIndex: number; estimate: DuelEstimate }[]>();
   players.forEach((p, playerIndex) => {
     for (const a of p.answers) {
       if (a.mode !== 'duel') continue;
-      const list = byQuestion.get(a.questionId) ?? [];
-      list.push({ playerIndex, estimate: { value: a.estValue!, unit: a.estUnit! } });
-      byQuestion.set(a.questionId, list);
+      const list = byRound.get(a.roundIndex) ?? [];
+      list.push({
+        playerIndex,
+        estimate: { value: a.estValue!, unit: a.estUnit!, durationSeconds: a.durationSeconds },
+      });
+      byRound.set(a.roundIndex, list);
     }
   });
 
@@ -107,7 +114,7 @@ function withOpponentEstimates(players: GamePlayerInput[]): GamePlayerInput[] {
     ...p,
     answers: p.answers.map((a) => {
       if (a.mode !== 'duel') return a;
-      const opponentEstimates = (byQuestion.get(a.questionId) ?? [])
+      const opponentEstimates = (byRound.get(a.roundIndex) ?? [])
         .filter((entry) => entry.playerIndex !== playerIndex)
         .map((entry) => entry.estimate);
       return { ...a, opponentEstimates };

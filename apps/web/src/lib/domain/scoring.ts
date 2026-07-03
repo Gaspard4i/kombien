@@ -42,14 +42,25 @@ export function scoreDuel(ownEstimateSeconds: number, opponentEstimateSeconds: n
 }
 
 /**
- * Duel à N joueurs (GAME_DESIGN_V2.md §1.3) : seul le groupe de tête (le ou les joueurs au
- * plus petit écart absolu) marque des points, en se partageant un pool fixe de 2 points
- * (floor(2 / k), k = nombre d'ex-æquo en tête). Tous les autres joueurs marquent 0. Se
- * réduit exactement au barème v1 pour 2 joueurs (k=1 -> 2/0, k=2 -> 1/1 en cas d'égalité).
- * Retourne un RoundOutcome par joueur, dans l'ordre de `estimateSeconds`.
+ * Duel à N joueurs (GAME_DESIGN_V2.md §1.3 et §5.3) : seul le groupe de tête marque des
+ * points, en se partageant un pool fixe de 2 points (floor(2 / k), k = nombre d'ex-æquo en
+ * tête). Tous les autres joueurs marquent 0. Se réduit exactement au barème v1 pour 2
+ * joueurs (k=1 -> 2/0, k=2 -> 1/1 en cas d'égalité).
+ *
+ * Le classement se calcule sur l'ÉCART RELATIF (|estimation - durée| / durée), pas l'écart
+ * absolu, dès que les questions sont différenciées par joueur (§5.3) : `durationsSeconds`
+ * accepte soit une durée commune (nombre unique, v1/questions communes — diviser tous les
+ * écarts absolus par la même constante ne change ni leur ordre ni les égalités, zéro
+ * régression), soit une durée par joueur (tableau aligné sur `estimateSeconds`).
  */
-export function scoreDuelRanked(estimateSeconds: number[], durationSeconds: number): RoundOutcome[] {
-  const errors = estimateSeconds.map((e) => Math.abs(e - durationSeconds));
+export function scoreDuelRanked(
+  estimateSeconds: number[],
+  durationsSeconds: number | number[],
+): RoundOutcome[] {
+  const errors = estimateSeconds.map((e, i) => {
+    const trueDuration = Array.isArray(durationsSeconds) ? durationsSeconds[i]! : durationsSeconds;
+    return Math.abs(e - trueDuration) / trueDuration;
+  });
   const bestError = Math.min(...errors);
   const leadCount = errors.filter((e) => e === bestError).length;
   const leadPoints = Math.floor(2 / leadCount);

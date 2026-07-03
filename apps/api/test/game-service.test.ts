@@ -6,10 +6,14 @@ import { computeGameResult, type QueryExecutor, type GamePlayerInput } from '../
 // vraie durée 7200s -> "longtemps"). Question 2 = duel (durée 1000s).
 // Question 3 = un piège : le client MENT sur durationSeconds/thresholdSeconds,
 // le service doit ignorer ces valeurs et recharger celles de la DB simulée.
+// Questions 4/5 : couple de questions différenciées (GAME_DESIGN_V2.md §5),
+// une courte et une longue, pour vérifier l'écart relatif de bout en bout.
 const QUESTIONS: Record<number, { duration_seconds: number; threshold_seconds: number }> = {
   1: { duration_seconds: 7200, threshold_seconds: 3600 },
   2: { duration_seconds: 1000, threshold_seconds: 500 },
   3: { duration_seconds: 60, threshold_seconds: 3600 }, // vraie durée courte malgré ce que le client prétend
+  4: { duration_seconds: 120, threshold_seconds: 3600 },
+  5: { duration_seconds: 36000, threshold_seconds: 3600 },
 };
 
 function fakeDb(): QueryExecutor {
@@ -197,4 +201,34 @@ test('computeGameResult : Multi, co-vainqueurs à égalité de tête (pas un mat
   assert.equal(result.players.find((p) => p.pseudo === 'Alice')!.is_winner, true);
   assert.equal(result.players.find((p) => p.pseudo === 'Bob')!.is_winner, true);
   assert.equal(result.players.find((p) => p.pseudo === 'Carol')!.is_winner, false);
+});
+
+test('computeGameResult : Duel avec questions différenciées (GAME_DESIGN_V2.md §5.3), classement par écart relatif', async () => {
+  // Alice répond à la question 4 (durée 120s, courte), Bob à la question 5 (durée 36000s,
+  // longue) — même roundIndex (0), questionId différents. Le service doit les faire
+  // s'affronter via roundIndex (pas questionId) et comparer leurs écarts RELATIFS.
+  // Alice : |180-120|/120 = 0.5 (50%). Bob : |36060-36000|/36000 ≈ 0.0017 (0.17%) -> Bob
+  // gagne largement malgré un écart absolu identique (60s des deux côtés).
+  const players: GamePlayerInput[] = [
+    {
+      pseudo: 'Alice',
+      answers: [
+        { mode: 'duel', questionId: 4, roundIndex: 0, responseTimeMs: 500, durationSeconds: 0, estValue: 180, estUnit: 'second' },
+      ],
+    },
+    {
+      pseudo: 'Bob',
+      answers: [
+        { mode: 'duel', questionId: 5, roundIndex: 0, responseTimeMs: 500, durationSeconds: 0, estValue: 36060, estUnit: 'second' },
+      ],
+    },
+  ];
+
+  const result = await computeGameResult(fakeDb(), players);
+  const alice = result.players.find((p) => p.pseudo === 'Alice')!;
+  const bob = result.players.find((p) => p.pseudo === 'Bob')!;
+
+  assert.equal(alice.score, 0);
+  assert.equal(bob.score, 2);
+  assert.equal(bob.is_winner, true);
 });

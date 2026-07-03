@@ -58,6 +58,9 @@
     "end_condition_points_desc": "The game stops at the end of the round where a player reaches the target.",
     "end_condition_manual_desc": "The game continues round after round, until you decide to stop.",
     "target_score_title": "Target score",
+    "differentiated_questions": "Differentiated questions",
+    "differentiated_questions_desc": "Each player gets their own questions, within the same theme.",
+    "differentiated_questions_forced": "Mandatory: each player already has their own theme.",
     "start": "Start game",
     "errors": {
       "pseudo_required": "Enter a nickname for every player.",

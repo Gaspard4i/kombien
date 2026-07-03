@@ -58,6 +58,9 @@
     "end_condition_points_desc": "La partie s'arrête à la fin de la manche où un joueur atteint la cible.",
     "end_condition_manual_desc": "La partie continue manche après manche, jusqu'à ce que vous décidiez d'arrêter.",
     "target_score_title": "Cible de points",
+    "differentiated_questions": "Questions différenciées",
+    "differentiated_questions_desc": "Chaque joueur reçoit ses propres questions, dans le même thème.",
+    "differentiated_questions_forced": "Obligatoire : chaque joueur a déjà son propre thème.",
     "start": "Commencer la partie",
     "errors": {
       "pseudo_required": "Renseigne un pseudo pour chaque joueur.",

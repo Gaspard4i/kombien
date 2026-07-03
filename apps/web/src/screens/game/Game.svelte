@@ -8,14 +8,23 @@
   import { onMount } from 'svelte';
   import { t, getLang } from '../../lib/i18n';
   import { navigate } from '../../lib/router/router.svelte';
-  import { getCategories, getCategoryQuestions, getQuestionsForCategories, ApiError } from '../../lib/api/client';
+  import {
+    getCategories,
+    getCategoryQuestions,
+    getQuestionsForCategories,
+    getDistinctQuestionsForPlayers,
+    ApiError,
+  } from '../../lib/api/client';
   import type { Category, Question, RawAnswer } from '../../lib/api/types';
   import { toSeconds, type Unit } from '../../lib/domain/units';
   import { scoreBinaire, scoreOrdreDeGrandeur, scoreDuelRanked, type RoundOutcome } from '../../lib/domain/scoring';
   import {
     getGameState,
     setRoundQuestions,
+    setPerPlayerRoundQuestions,
+    isDifferentiated,
     currentQuestion,
+    roundQuestionCount,
     recordAnswer,
     advanceQuestion,
     advanceRound,
@@ -82,15 +91,28 @@
     return allCategories.find((c) => c.id === question.category_id) ?? currentCategory;
   }
 
-  // Tirage de la manche (GAME_DESIGN_V2.md §2.6) : catégorie unique (rotation/global/
-  // vote, ancien endpoint) ou union de catégories (multi/per_player, nouvel endpoint).
+  // Tirage de la manche (GAME_DESIGN_V2.md §2.6 et §5.2, Lot 3) : catégorie unique
+  // (rotation/global/vote, ancien endpoint) ou union de catégories (multi/per_player,
+  // endpoint multi-catégories) ; en mode "questions différenciées", le même pool (slugs
+  // résolus ci-dessus) est distribué en sous-ensembles disjoints par joueur plutôt qu'en
+  // un seul jeu de questions partagé.
   async function loadRoundQuestions(): Promise<void> {
     step = { name: 'loading-questions' };
+    const slugs = fixedActiveSlugs ?? [currentCategory.slug];
     try {
-      const questions = fixedActiveSlugs
-        ? await getQuestionsForCategories(fixedActiveSlugs, game.config!.questionsPerRound)
-        : await getCategoryQuestions(currentCategory.slug, game.config!.questionsPerRound);
-      setRoundQuestions(questions);
+      if (game.config!.differentiatedQuestions) {
+        const perPlayerQuestions = await getDistinctQuestionsForPlayers(
+          slugs,
+          game.config!.questionsPerRound,
+          playerCount(),
+        );
+        setPerPlayerRoundQuestions(perPlayerQuestions);
+      } else {
+        const questions = fixedActiveSlugs
+          ? await getQuestionsForCategories(fixedActiveSlugs, game.config!.questionsPerRound)
+          : await getCategoryQuestions(currentCategory.slug, game.config!.questionsPerRound);
+        setRoundQuestions(questions);
+      }
       beginQuestion();
     } catch (err) {
       const message = err instanceof ApiError ? t(`errors.${err.code}`) : t('errors.unknown_error');
@@ -123,8 +145,11 @@
     step = { name: 'answer', playerIndex };
   }
 
-  function buildRawAnswer(extra: Partial<RawAnswer>): RawAnswer {
-    const q = currentQuestion()!;
+  // playerIndex : en mode différencié, chaque joueur répond à SA propre question
+  // (currentQuestion(playerIndex)), donc son propre questionId/durationSeconds — c'est ce
+  // qui permet au serveur de rejouer le scoring en écart relatif (GAME_DESIGN_V2.md §5.3).
+  function buildRawAnswer(playerIndex: number, extra: Partial<RawAnswer>): RawAnswer {
+    const q = currentQuestion(playerIndex)!;
     return {
       mode: game.config!.mode,
       questionId: q.id,
@@ -145,26 +170,30 @@
   }
 
   function handleBinaireAnswer(playerIndex: number, answer: 'yes' | 'no'): void {
-    const q = currentQuestion()!;
+    const q = currentQuestion(playerIndex)!;
     // categoryForQuestion : en mode multi/per_player, chaque question de la manche peut
     // venir d'une catégorie différente, donc d'un seuil différent (GAME_DESIGN_V2.md §2.3-2.4).
     const threshold = categoryForQuestion(q).threshold_seconds;
-    const raw = buildRawAnswer({ binaryAnswer: answer, thresholdSeconds: threshold });
+    const raw = buildRawAnswer(playerIndex, { binaryAnswer: answer, thresholdSeconds: threshold });
     const outcome = scoreBinaire(answer, q.duration_seconds, threshold);
     commitAnswer(playerIndex, raw, outcome);
   }
 
   function handleOrdreAnswer(playerIndex: number, unit: Unit): void {
-    const q = currentQuestion()!;
-    const raw = buildRawAnswer({ chosenUnit: unit });
+    const q = currentQuestion(playerIndex)!;
+    const raw = buildRawAnswer(playerIndex, { chosenUnit: unit });
     const outcome = scoreOrdreDeGrandeur(unit, q.duration_seconds);
     commitAnswer(playerIndex, raw, outcome);
   }
 
   // Duel : chaque joueur saisit son estimation ; on ne connaît le classement qu'une fois
   // que TOUS ont répondu (GAME_DESIGN_V2.md §1.3 : classement par rang d'écart à N joueurs).
+  // En mode différencié (§5.3), chaque joueur estime sur SA PROPRE question : le classement
+  // se calcule alors en écart RELATIF (une durée par joueur), au lieu de l'écart absolu à
+  // durée commune — scoreDuelRanked se réduit exactement au cas v1 si toutes les questions
+  // sont identiques (mêmes durationsSeconds pour tous).
   function handleDuelAnswer(playerIndex: number, value: number, unit: Unit): void {
-    const raw = buildRawAnswer({ estValue: value, estUnit: unit });
+    const raw = buildRawAnswer(playerIndex, { estValue: value, estUnit: unit });
     pendingAnswers[playerIndex] = raw;
 
     const nextIndex = playerIndex + 1;
@@ -174,9 +203,9 @@
     }
 
     // Dernier joueur : toutes les estimations sont connues, on calcule le classement.
-    const q = currentQuestion()!;
     const estimateSeconds = pendingAnswers.map((a) => toSeconds(a!.estValue!, a!.estUnit!));
-    const outcomes = scoreDuelRanked(estimateSeconds, q.duration_seconds);
+    const durationsSeconds = pendingAnswers.map((a) => a!.durationSeconds);
+    const outcomes = scoreDuelRanked(estimateSeconds, isDifferentiated() ? durationsSeconds : durationsSeconds[0]!);
 
     // opponentEstValue/opponentEstUnit (contrat v1, un seul adversaire) n'a de sens qu'à
     // 2 joueurs ; au-delà, le serveur recalcule le classement à N joueurs par questionId.
@@ -253,14 +282,21 @@
     navigate({ name: 'end' });
   }
 
-  const question = $derived(currentQuestion());
-  const isLastQuestionOfRound = $derived(game.questionIndex + 1 >= game.questions.length);
+  // En mode différencié, la question affichée à l'écran de réponse est celle du joueur DONT
+  // c'est le tour (step.playerIndex) ; en mode commun currentQuestion(0) == currentQuestion(N)
+  // pour tout N (un seul jeu de questions partagé), donc l'index n'a pas d'importance.
+  const activeAnswerPlayerIndex = $derived(step.name === 'answer' || step.name === 'answer-transition' ? step.playerIndex : 0);
+  const question = $derived(currentQuestion(activeAnswerPlayerIndex));
+  const isLastQuestionOfRound = $derived(game.questionIndex + 1 >= roundQuestionCount());
   const revealPlayers = $derived(
     game.players && pendingOutcomes.every((o) => o !== null)
       ? game.players.map((p, i) => ({
           pseudo: p.pseudo,
           isGoodAnswer: pendingOutcomes[i]!.isGoodAnswer,
           points: pendingOutcomes[i]!.points,
+          // Questions différenciées (§5) : la durée réelle de CE joueur, pour que
+          // RevealPanel affiche un split-flap par joueur plutôt qu'un seul partagé.
+          ownDurationSeconds: isDifferentiated() ? pendingAnswers[i]!.durationSeconds : undefined,
         }))
       : null,
   );

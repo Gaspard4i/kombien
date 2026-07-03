@@ -75,6 +75,17 @@ export function getQuestionsForCategories(slugs: string[], count = 5): Promise<Q
   return request(`/questions?categories=${categories}&count=${count}`);
 }
 
+// Tirage en sous-ensembles disjoints par joueur (Lot 3 v2, GAME_DESIGN_V2.md §5.2) : option
+// "questions différenciées". Réponse alignée sur l'ordre des joueurs (PlayerSlot[]).
+export function getDistinctQuestionsForPlayers(
+  slugs: string[],
+  count: number,
+  playerCount: number,
+): Promise<Question[][]> {
+  const categories = slugs.map(encodeURIComponent).join(',');
+  return request(`/questions/distinct?categories=${categories}&count=${count}&players=${playerCount}`);
+}
+
 export function createQuestion(input: CreateQuestionInput): Promise<CreateQuestionResult> {
   return request('/questions', { method: 'POST', body: JSON.stringify(input) });
 }

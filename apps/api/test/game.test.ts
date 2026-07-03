@@ -172,6 +172,28 @@ test('computePlayerRun : duel à 3 joueurs, 2 ex-æquo au sommet -> floor(2/2)=1
   assert.equal(c.duelsWon, 0); // 1 pt seulement, pas un duel "gagné" (2 pts)
 });
 
+test('computePlayerRun : duel avec questions différenciées, écart relatif via opponentEstimates.durationSeconds', () => {
+  // Alice : durée 120s, estime 180s -> écart relatif 0.5. Adversaire (Bob, question
+  // différente) : durée 36000s, estime 36060s -> écart relatif ~0.0017. Bob gagne malgré un
+  // écart absolu identique (60s) : ce test isole le comportement au niveau domaine, sans
+  // passer par le service (couvert par game-service.test.ts en bout en bout).
+  const alice: RawAnswer[] = [
+    {
+      mode: 'duel',
+      questionId: 4,
+      roundIndex: 0,
+      responseTimeMs: 1000,
+      durationSeconds: 120,
+      estValue: 180,
+      estUnit: 'second',
+      opponentEstimates: [{ value: 36060, unit: 'second', durationSeconds: 36000 }],
+    },
+  ];
+  const c = computePlayerRun({ answers: alice });
+  assert.equal(c.finalScore, 0);
+  assert.equal(c.duelsWon, 0);
+});
+
 test('computePlayerRun : duel, 3 joueurs tous ex-æquo -> floor(2/3)=0, personne ne marque', () => {
   // Tous à écart identique 100 : k=3 -> floor(2/3)=0. Personne ne se détache, personne ne
   // marque ni ne maintient son streak (GAME_DESIGN_V2 §1.3, note team-lead).
