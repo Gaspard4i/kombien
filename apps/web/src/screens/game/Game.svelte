@@ -30,21 +30,26 @@
     advanceRound,
     isEndConditionMet,
     activeCategorySlugs,
+    effectiveThreshold,
   } from '../../lib/stores/gameStore.svelte';
   import AppShell from '../../lib/components/AppShell.svelte';
   import Card from '../../lib/components/Card.svelte';
   import Skeleton from '../../lib/components/Skeleton.svelte';
   import ErrorMessage from '../../lib/components/ErrorMessage.svelte';
   import Button from '../../lib/components/Button.svelte';
+  import Icon from '../../lib/components/Icon.svelte';
   import TransitionScreen from './TransitionScreen.svelte';
   import ScoreBar from './ScoreBar.svelte';
   import CategoryPick from './CategoryPick.svelte';
+  import CalibrationScreen from './CalibrationScreen.svelte';
   import BinaireAnswer from './BinaireAnswer.svelte';
   import OrdreDeGrandeurAnswer from './OrdreDeGrandeurAnswer.svelte';
   import DuelAnswer from './DuelAnswer.svelte';
   import RevealPanel from './RevealPanel.svelte';
 
   type Step =
+    | { name: 'calibration-intro' }
+    | { name: 'calibration' }
     | { name: 'category-transition' }
     | { name: 'category-pick' }
     | { name: 'loading-questions' }
@@ -60,7 +65,11 @@
   // après manche) ; null pour rotation (croisement v1, catégorie choisie à chaque manche).
   const fixedActiveSlugs = activeCategorySlugs(game.config!.themeSelection);
 
-  let step = $state<Step>({ name: 'loading-questions' });
+  // Calibration (Lot 4 v2, GAME_DESIGN_V2.md §3) : uniquement en mode Binaire, avant la
+  // toute première manche (jamais réévaluée ensuite, cf gameStore.setCalibratedThreshold).
+  const needsCalibration = game.config!.mode === 'binaire';
+
+  let step = $state<Step>(needsCalibration ? { name: 'calibration-intro' } : { name: 'loading-questions' });
   let allCategories = $state<Category[]>([]);
   let currentCategory = $state<Category>(game.config!.category);
 
@@ -74,6 +83,11 @@
   let answerStartedAt = 0;
 
   onMount(async () => {
+    if (needsCalibration) return; // attend handleCalibrationDone() (voir plus bas)
+    await loadInitialQuestions();
+  });
+
+  async function loadInitialQuestions(): Promise<void> {
     // Pool de catégories connu à l'avance pour tout mode hors rotation (résolution du
     // tag/seuil par question via category_id, cf categoryForQuestion ci-dessous).
     if (fixedActiveSlugs) {
@@ -81,7 +95,15 @@
     }
     // Manche 1 : la catégorie (ou le pool) est déjà choisie via Setup, pas de category-pick.
     await loadRoundQuestions();
-  });
+  }
+
+  function handleCalibrationStart(): void {
+    step = { name: 'calibration' };
+  }
+
+  async function handleCalibrationDone(): Promise<void> {
+    await loadInitialQuestions();
+  }
 
   // Résout la catégorie réelle d'une question par son category_id (nécessaire en mode
   // multi/per_player où plusieurs catégories sont actives simultanément dans une même
@@ -173,7 +195,10 @@
     const q = currentQuestion(playerIndex)!;
     // categoryForQuestion : en mode multi/per_player, chaque question de la manche peut
     // venir d'une catégorie différente, donc d'un seuil différent (GAME_DESIGN_V2.md §2.3-2.4).
-    const threshold = categoryForQuestion(q).threshold_seconds;
+    // effectiveThreshold : seuil calibré du JOUEUR (Lot 4 v2, §3.5) s'il a calibré, sinon
+    // repli sur le seuil de catégorie (v1, calibration non effectuée).
+    const categoryThreshold = categoryForQuestion(q).threshold_seconds;
+    const threshold = effectiveThreshold(playerIndex, categoryThreshold);
     const raw = buildRawAnswer(playerIndex, { binaryAnswer: answer, thresholdSeconds: threshold });
     const outcome = scoreBinaire(answer, q.duration_seconds, threshold);
     commitAnswer(playerIndex, raw, outcome);
@@ -303,7 +328,22 @@
 </script>
 
 <AppShell>
-  {#if step.name === 'category-transition'}
+  {#if step.name === 'calibration-intro'}
+    <div class="game__calibration-intro">
+      <Icon name="clock" size="lg" />
+      <h1 class="game__calibration-title">{t('calibration.intro_title')}</h1>
+      <p class="game__calibration-body">{t('calibration.intro_body')}</p>
+      <Button variant="primary" fullWidth onclick={handleCalibrationStart}>
+        {t('calibration.intro_start')}
+      </Button>
+    </div>
+  {:else if step.name === 'calibration'}
+    <CalibrationScreen
+      pseudos={game.players!.map((p) => p.pseudo)}
+      categoryThresholdSeconds={game.config!.category.threshold_seconds}
+      oncomplete={handleCalibrationDone}
+    />
+  {:else if step.name === 'category-transition'}
     <TransitionScreen
       pseudo={chooserPseudo()}
       role="choose_category"
@@ -382,6 +422,30 @@
 </AppShell>
 
 <style>
+  .game__calibration-intro {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap);
+    text-align: center;
+    color: var(--amber);
+  }
+
+  .game__calibration-title {
+    font-family: var(--font-display);
+    font-size: var(--fs-title);
+    font-weight: 700;
+    color: var(--ink-hi);
+  }
+
+  .game__calibration-body {
+    color: var(--ink-mid);
+    font-size: var(--fs-body);
+    max-width: 24rem;
+  }
+
   .game__header {
     display: flex;
     align-items: center;

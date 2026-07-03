@@ -17,6 +17,15 @@ export interface Question {
   duration_seconds: number;
 }
 
+// Calibration du mode Binaire (Lot 4 v2, GAME_DESIGN_V2.md §3) : pas de category_id,
+// un seul pool dédié hors des catégories de jeu (GET /calibration/questions).
+export interface CalibrationQuestion {
+  id: number;
+  text_fr: string;
+  text_en: string;
+  duration_seconds: number;
+}
+
 export interface CreateQuestionInput {
   text_fr: string;
   text_en?: string;

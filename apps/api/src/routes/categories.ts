@@ -7,8 +7,10 @@ import {
 
 export async function categoriesRoutes(app: FastifyInstance): Promise<void> {
   app.get('/categories', async () => {
+    // Exclut le pool de calibration (Lot 4 v2, GAME_DESIGN_V2.md §3.2) : jamais un
+    // thème jouable normal, seulement servi via GET /calibration/questions.
     const { rows } = await app.pg.query(
-      'SELECT id, slug, name_fr, name_en, threshold_seconds FROM categories ORDER BY name_fr',
+      'SELECT id, slug, name_fr, name_en, threshold_seconds FROM categories WHERE NOT is_calibration ORDER BY name_fr',
     );
     return rows;
   });

@@ -116,6 +116,13 @@
     "label": "Manche {{number}}",
     "question_of": "Question {{current}} / {{total}}"
   },
+  "calibration": {
+    "intro_title": "Calibration",
+    "intro_body": "Avant de commencer, chaque joueur répond à 5 questions pour ajuster son propre seuil de « longtemps ». Pas de points en jeu ici.",
+    "intro_start": "Commencer la calibration",
+    "label": "Calibration",
+    "progress": "Question {{current}} / {{total}}"
+  },
   "question": {
     "binaire_prompt": "Est-ce que ça prend longtemps ?",
     "binaire_yes": "OUI, LONGTEMPS",

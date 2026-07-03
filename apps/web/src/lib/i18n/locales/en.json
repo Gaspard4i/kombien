@@ -116,6 +116,13 @@
     "label": "Round {{number}}",
     "question_of": "Question {{current}} / {{total}}"
   },
+  "calibration": {
+    "intro_title": "Calibration",
+    "intro_body": "Before starting, each player answers 5 questions to tune their own \"long time\" threshold. No points at stake here.",
+    "intro_start": "Start calibration",
+    "label": "Calibration",
+    "progress": "Question {{current}} / {{total}}"
+  },
   "question": {
     "binaire_prompt": "Does it take a long time?",
     "binaire_yes": "YES, A LONG TIME",

@@ -1,4 +1,5 @@
 import type {
+  CalibrationQuestion,
   Category,
   CreateQuestionInput,
   CreateQuestionResult,
@@ -84,6 +85,12 @@ export function getDistinctQuestionsForPlayers(
 ): Promise<Question[][]> {
   const categories = slugs.map(encodeURIComponent).join(',');
   return request(`/questions/distinct?categories=${categories}&count=${count}&players=${playerCount}`);
+}
+
+// Calibration du mode Binaire (Lot 4 v2, GAME_DESIGN_V2.md §3) : pool dédié, hors
+// des catégories de jeu. count = 5 par défaut (§3.1).
+export function getCalibrationQuestions(count = 5): Promise<CalibrationQuestion[]> {
+  return request(`/calibration/questions?count=${count}`);
 }
 
 export function createQuestion(input: CreateQuestionInput): Promise<CreateQuestionResult> {

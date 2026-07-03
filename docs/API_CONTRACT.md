@@ -27,6 +27,31 @@ et `GET /players/:pseudo` sont **supprimés**. Le seul classement qui existe est
 celui de la session de jeu en cours, dérivé côté client à partir de la réponse
 de `POST /games`.
 
+`GET /categories` exclut la catégorie spéciale de calibration (`_calibration`,
+`is_calibration = true`) : jamais un thème jouable, seulement servie via
+`GET /calibration/questions` ci-dessous (Lot 4 v2).
+
+### `GET /calibration/questions?count=5`
+
+Calibration du mode Binaire (Lot 4 v2, GAME_DESIGN_V2.md §3) : sert les questions
+du pool dédié, **hors des catégories de jeu** (catégorie `_calibration` flaggée
+`is_calibration`, migration `0005_calibration.sql`), aléatoires, `status='approved'`.
+`count` 1..50 (défaut **5**, cf. GAME_DESIGN_V2.md §3.1). Réponse :
+`[{ id, text_fr, text_en, duration_seconds }]` — pas de `category_id` (un seul
+pool, pas de croisement possible avec le jeu).
+
+Chaque joueur passe la calibration indépendamment (Solo n/a, 5 questions par
+joueur en Multi/Duo, jamais mutualisées) : pour chaque question, répondre
+"longtemps"/"pas longtemps" **sans connaître la vraie durée** ni le seuil, comme
+en jeu normal. Aucun scoring, aucun streak, aucun exploit sur cette phase (pure
+étalonnage). Le calcul du seuil individuel (moyenne géométrique des bornes
+basse/haute observées, replis sur les cas extrêmes/incohérents — GAME_DESIGN_V2.md
+§3.3-3.4) est fait **côté client** (port TypeScript de
+`domain/calibration.ts::deriveThreshold`, jamais recalculé serveur) ; le
+résultat n'est communiqué au serveur qu'au moment du scoring de la partie via
+`thresholdSeconds` dans chaque `RawAnswer` binaire de `POST /games` (voir
+ci-dessous).
+
 ### `GET /questions/distinct?categories=slug1,slug2&count=5&players=3`
 Tirage en sous-ensembles **disjoints**, un par joueur (Lot 3 v2, GAME_DESIGN_V2.md
 §5.2) : option "questions différenciées" — chaque joueur reçoit `count` questions
@@ -96,10 +121,21 @@ Body :
 }
 ```
 `questionId` est **requis** (v2, ajout par rapport à v1) : le serveur recharge
-`duration_seconds` (et `threshold_seconds` de la catégorie, en mode binaire)
-depuis la table `questions` par cet id, et ignore les valeurs envoyées par le
-client dans `durationSeconds`/`thresholdSeconds` — anti-triche renforcé, on ne
-fait plus confiance à la vérité terrain déclarée par le client.
+`duration_seconds` depuis la table `questions` par cet id, et ignore la valeur
+envoyée par le client dans `durationSeconds` — anti-triche renforcé, on ne fait
+plus confiance à la vérité terrain déclarée par le client.
+
+`thresholdSeconds` (mode binaire) : **cas différent de `durationSeconds`**
+(Lot 4 v2, calibration, GAME_DESIGN_V2.md §3.5). Ce n'est pas une vérité terrain
+falsifiable, c'est une **préférence de joueur** dérivée de sa propre calibration
+côté client (5 questions, cf. `GET /calibration/questions` ci-dessus) : le
+serveur l'accepte **tel quel** depuis le client, sans le recharger depuis
+`threshold_seconds` de la catégorie. Mentir sur ce seuil ne fait que changer
+l'interprétation binaire de sa propre estimation, jamais la vérité
+(`duration_seconds`) contre laquelle elle est jugée — rien à falsifier. Si le
+client omet `thresholdSeconds` (partie sans calibration, contrat v1), le
+serveur retombe sur `threshold_seconds` de la catégorie de la question
+(comportement v1 inchangé).
 
 Duel à N joueurs (lot 1) : le client envoie toujours `estValue`/`estUnit` (sa
 propre estimation) par réponse ; `opponentEstValue`/`opponentEstUnit` (un seul

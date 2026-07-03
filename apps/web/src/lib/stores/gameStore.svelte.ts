@@ -27,6 +27,11 @@ export interface PlayerSlot {
   score: number;
   streak: number;
   bestStreak: number;
+  // Seuil calibré du mode Binaire (Lot 4 v2, GAME_DESIGN_V2.md §3.5) : paramètre de
+  // partie ÉPHÉMÈRE, jamais persisté, recalculé une fois en début de partie (jamais
+  // réévalué manche après manche). `null` = pas de calibration (autre mode, ou
+  // calibration non effectuée) -> repli sur threshold_seconds de la catégorie.
+  calibratedThresholdSeconds: number | null;
 }
 
 export interface GameConfig {
@@ -62,7 +67,7 @@ export interface GameState {
 }
 
 function emptyPlayer(pseudo: string): PlayerSlot {
-  return { pseudo, answers: [], score: 0, streak: 0, bestStreak: 0 };
+  return { pseudo, answers: [], score: 0, streak: 0, bestStreak: 0, calibratedThresholdSeconds: null };
 }
 
 let state = $state<GameState>({
@@ -132,6 +137,26 @@ export function roundQuestionCount(): number {
 
 export function playerCount(): number {
   return state.players?.length ?? 0;
+}
+
+/**
+ * Enregistre le seuil calibré d'un joueur (Lot 4 v2, GAME_DESIGN_V2.md §3.5) : calculé
+ * une fois par CalibrationScreen avant la 1ère manche du mode Binaire, jamais réévalué
+ * ensuite. Paramètre de partie éphémère (pas de $state persisté au-delà de gameStore).
+ */
+export function setCalibratedThreshold(playerIndex: number, thresholdSeconds: number): void {
+  const player = state.players?.[playerIndex];
+  if (!player) return;
+  player.calibratedThresholdSeconds = thresholdSeconds;
+}
+
+/**
+ * Seuil binaire effectif pour un joueur (GAME_DESIGN_V2.md §3.5) : le seuil calibré du
+ * joueur s'il a calibré, sinon repli sur threshold_seconds de la catégorie de la
+ * question en cours (comportement v1, mode Binaire sans calibration).
+ */
+export function effectiveThreshold(playerIndex: number, categoryThresholdSeconds: number): number {
+  return state.players?.[playerIndex]?.calibratedThresholdSeconds ?? categoryThresholdSeconds;
 }
 
 /** Applique le résultat d'une réponse (points de base déjà calculés) à un joueur. */

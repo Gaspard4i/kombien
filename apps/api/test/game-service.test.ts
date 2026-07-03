@@ -28,9 +28,10 @@ function fakeDb(): QueryExecutor {
   };
 }
 
-test('computeGameResult : recharge la vérité terrain par questionId (anti-triche)', async () => {
+test('computeGameResult : recharge durationSeconds par questionId, ignore le mensonge client (anti-triche)', async () => {
   // Le joueur A prétend que la question 3 dure 3600s et répond "yes" (longtemps).
-  // La vraie durée serveur est 60s (pas longtemps) -> réponse fausse, 0 pt.
+  // La vraie durée serveur est 60s (pas longtemps) -> réponse fausse, 0 pt, quel que
+  // soit le seuil utilisé (durationSeconds est toujours la vérité terrain serveur).
   const players: GamePlayerInput[] = [
     {
       pseudo: 'Alice',
@@ -42,7 +43,7 @@ test('computeGameResult : recharge la vérité terrain par questionId (anti-tric
           responseTimeMs: 1000,
           durationSeconds: 3600, // mensonge client
           binaryAnswer: 'yes',
-          thresholdSeconds: 1, // mensonge client (seuil trivialement franchi)
+          thresholdSeconds: 3600,
         },
       ],
     },
@@ -66,9 +67,57 @@ test('computeGameResult : recharge la vérité terrain par questionId (anti-tric
   const alice = result.players.find((p) => p.pseudo === 'Alice')!;
   const bob = result.players.find((p) => p.pseudo === 'Bob')!;
 
-  assert.equal(alice.score, 0); // "yes" est faux vu la vraie durée/seuil serveur
+  assert.equal(alice.score, 0); // "yes" est faux vu la vraie durée serveur (60 < 3600)
   assert.equal(bob.score, 1); // "no" est correct
   assert.equal(bob.is_winner, true);
+});
+
+test('computeGameResult : thresholdSeconds client respecté (seuil calibré, Lot 4 v2 §3.5, pas une vérité falsifiable)', async () => {
+  // Question 3 : vraie durée serveur 60s. Le seuil calibré du joueur (préférence
+  // individuelle issue de sa propre calibration) est appliqué tel quel, PAS écrasé
+  // par threshold_seconds de la catégorie (3600s pour la question 3, cf. fakeDb) —
+  // seule durationSeconds reste une vérité terrain anti-triche.
+  const players: GamePlayerInput[] = [
+    {
+      pseudo: 'Alice',
+      answers: [
+        {
+          mode: 'binaire',
+          questionId: 3,
+          roundIndex: 0,
+          responseTimeMs: 1000,
+          durationSeconds: 60,
+          binaryAnswer: 'no',
+          thresholdSeconds: 30, // seuil calibré, plus bas que la catégorie -> 60 est "longtemps"
+        },
+      ],
+    },
+    { pseudo: 'Bob', answers: [] },
+  ];
+
+  const result = await computeGameResult(fakeDb(), players);
+  const alice = result.players.find((p) => p.pseudo === 'Alice')!;
+  // Avec le seuil calibré (30s), 60s >= 30 -> "longtemps" -> "no" est FAUX (0 pt).
+  // Avec le seuil catégorie (3600s), "no" aurait été correct (1 pt) : le test
+  // vérifie bien que c'est le seuil calibré du client qui a été utilisé.
+  assert.equal(alice.score, 0);
+});
+
+test('computeGameResult : thresholdSeconds absent -> repli sur threshold_seconds de la catégorie (v1)', async () => {
+  const players: GamePlayerInput[] = [
+    {
+      pseudo: 'Alice',
+      answers: [
+        { mode: 'binaire', questionId: 3, roundIndex: 0, responseTimeMs: 1000, durationSeconds: 60, binaryAnswer: 'no' },
+      ],
+    },
+    { pseudo: 'Bob', answers: [] },
+  ];
+
+  const result = await computeGameResult(fakeDb(), players);
+  const alice = result.players.find((p) => p.pseudo === 'Alice')!;
+  // Seuil catégorie (3600s) : 60 < 3600 -> "pas longtemps" -> "no" est correct.
+  assert.equal(alice.score, 1);
 });
 
 test('computeGameResult : duel recalculé sur la durée serveur, pas la durée client', async () => {

@@ -72,15 +72,26 @@ async function loadQuestionTruths(
 }
 
 // Réhydrate les réponses brutes d'un joueur avec la vérité terrain serveur :
-// durationSeconds et (mode binaire) thresholdSeconds sont écrasés, jamais lus
-// depuis le payload client.
+// durationSeconds est TOUJOURS écrasée par la DB, jamais lue depuis le payload
+// client (anti-triche — c'est un fait objectif, falsifiable si on faisait confiance
+// au client).
+//
+// thresholdSeconds (mode binaire) est un cas différent (Lot 4 v2, calibration,
+// GAME_DESIGN_V2.md §3.5) : ce n'est PAS une vérité terrain, c'est une préférence de
+// joueur dérivée de sa propre calibration (5 réponses "longtemps"/"pas longtemps" sur
+// un pool hors catégorie, cf domain/calibration.ts deriveThreshold). Il n'y a rien à
+// falsifier en mentant dessus — un joueur qui envoie un seuil "généreux" ne change que
+// l'interprétation de SA PROPRE estimation, jamais la vérité (duration_seconds) contre
+// laquelle elle est jugée. On l'accepte donc tel quel depuis le client, avec un seul
+// repli : si l'appelant n'a pas fourni de seuil calibré (ancien contrat, calibration
+// non effectuée), on retombe sur threshold_seconds de la catégorie (comportement v1).
 function withServerTruth(answers: RawAnswer[], truths: Map<number, QuestionTruth>): RawAnswer[] {
   return answers.map((a) => {
     const truth = truths.get(a.questionId)!;
     return {
       ...a,
       durationSeconds: truth.duration_seconds,
-      thresholdSeconds: a.mode === 'binaire' ? (truth.threshold_seconds ?? a.thresholdSeconds) : a.thresholdSeconds,
+      thresholdSeconds: a.mode === 'binaire' ? (a.thresholdSeconds ?? truth.threshold_seconds ?? undefined) : a.thresholdSeconds,
     };
   });
 }

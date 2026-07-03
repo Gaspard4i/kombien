@@ -7,6 +7,7 @@ import { categoriesRoutes } from './routes/categories.ts';
 import { questionsRoutes } from './routes/questions.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { gamesRoutes } from './routes/games.ts';
+import { calibrationRoutes } from './routes/calibration.ts';
 
 // Taille max d'un fichier d'import (Lot 6) : le fichier vient d'un upload admin
 // non fiable, on borne large pour un import de texte (questions) mais anti-DoS.
@@ -35,6 +36,7 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
   await app.register(questionsRoutes);
   await app.register(async (instance) => adminRoutes(instance, config.adminSecret));
   await app.register(gamesRoutes);
+  await app.register(calibrationRoutes);
 
   return app;
 }
