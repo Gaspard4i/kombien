@@ -1,0 +1,50 @@
+# Traefik dynamic configuration - Kombien
+# A deposer sur gazai dans : /srv/dev/traefik/dynamic/kombien.yml
+# Traefik le recharge automatiquement (watch: true).
+#
+# Routing :
+#   kombien.gazai.fr       -> web  (SPA nginx, loopback 127.0.0.1:8013)
+#   kombien-api.gazai.fr   -> api  (Fastify, loopback 127.0.0.1:8014)
+#
+# NB : sous-domaines a UN SEUL niveau (kombien-api, PAS api.kombien) : un cert
+# wildcard *.gazai.fr ne couvre pas les deux niveaux (api.kombien.gazai.fr).
+#
+# TLS : wildcard *.gazai.fr gere par le certResolver "ovh" existant sur gazai.
+# HTTP->HTTPS : gere globalement par l'entryPoint "web" (redirect permanent vers websecure).
+
+http:
+  routers:
+    kombien-web:
+      rule: "Host(`kombien.gazai.fr`)"
+      entryPoints:
+        - websecure
+      service: kombien-web
+      tls:
+        certResolver: ovh
+        domains:
+          - main: gazai.fr
+            sans:
+              - "*.gazai.fr"
+
+    kombien-api:
+      rule: "Host(`kombien-api.gazai.fr`)"
+      entryPoints:
+        - websecure
+      service: kombien-api
+      tls:
+        certResolver: ovh
+        domains:
+          - main: gazai.fr
+            sans:
+              - "*.gazai.fr"
+
+  services:
+    kombien-web:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8013"
+
+    kombien-api:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8014"

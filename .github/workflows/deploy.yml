@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/${{ github.repository }}-api
+  IMAGE_WEB: ghcr.io/${{ github.repository }}-web
+
+jobs:
+  # ── Lint + tests API ──────────────────────────────────────────────────────────
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+        working-directory: apps/api
+      - run: npm run build
+        working-directory: apps/api
+      - run: npm run test:coverage
+        working-directory: apps/api
+
+  # ── Build + push des images (contexte = racine du repo) ──────────────────────
+  build-push:
+    needs: test-api
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/api.Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_API }}:${{ github.sha }},${{ env.IMAGE_API }}:latest
+
+      - name: Build + push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_WEB }}:${{ github.sha }},${{ env.IMAGE_WEB }}:latest
+
+  # ── Déploiement prod : SÉPARÉ, gate manuel via l'environnement GitHub ────────
+  # "production" doit être configuré avec des required reviewers (Settings >
+  # Environments) : le job reste en attente tant qu'un reviewer n'approuve pas.
+  # Déploiement réel via infra/deploy.sh (tar+scp+build sur place), pas via les
+  # images ghcr.io — voir docs/DECISIONS.md D-007 pour le choix des deux voies.
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurer la clé SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Déployer sur gazai (infra/deploy.sh)
+        # Le runner a checkout le repo : deploy.sh y trouve son propre code
+        # source et reproduit le même mécanisme tar+scp+build qu'en local.
+        run: bash infra/deploy.sh
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}

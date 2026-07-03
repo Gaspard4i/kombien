@@ -1,0 +1,106 @@
+# Kombien - docker-compose de deploiement (gazai.fr)
+#
+# Gazai utilise Traefik en FILE-PROVIDER : le routing est defini dans
+# infra/traefik/kombien.yml, pas dans les labels de ce fichier.
+# Les services exposent des ports uniquement sur 127.0.0.1 (loopback)
+# pour que Traefik reverse-proxy vers eux.
+#
+# Ports loopback retenus (D-006, docs/DECISIONS.md) :
+#   web : 127.0.0.1:8013 -> container:80
+#   api : 127.0.0.1:8014 -> container:3000
+#   db  : PAS de port expose (acces interne uniquement)
+#
+# Lancer depuis la racine du repo :
+#   docker compose -f infra/docker-compose.yml --env-file infra/.env build
+#   docker compose -f infra/docker-compose.yml --env-file infra/.env up -d
+#
+# Variables requises dans infra/.env : voir infra/.env.example
+
+name: kombien
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: kombien-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kombien}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-kombien}
+    volumes:
+      - kombien-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kombien} -d ${POSTGRES_DB:-kombien}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - kombien-internal
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: kombien-api
+    image: kombien-api:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kombien}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-kombien}
+      ADMIN_SECRET: ${ADMIN_SECRET}
+      PORT: "3000"
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Traefik proxie kombien-api.gazai.fr -> 127.0.0.1:8014
+      - "127.0.0.1:8014:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - kombien-internal
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: kombien-web
+    image: kombien-web:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      # Traefik proxie kombien.gazai.fr -> 127.0.0.1:8013
+      - "127.0.0.1:8013:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - kombien-internal
+
+volumes:
+  kombien-pg-data:
+    name: kombien-pg-data
+
+networks:
+  kombien-internal:
+    name: kombien-internal
+    driver: bridge

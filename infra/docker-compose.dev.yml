@@ -1,0 +1,61 @@
+# Dev local : hot-reload sur web (vite) et api (node --watch), DB dans Docker.
+# Lancement : docker compose -f infra/docker-compose.dev.yml up
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kombien
+      POSTGRES_PASSWORD: kombien_dev
+      POSTGRES_DB: kombien
+    volumes:
+      - kombien_dev_db:/var/lib/postgresql/data
+    ports:
+      - '127.0.0.1:5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kombien']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+      target: build
+    working_dir: /app/apps/api
+    command: npm run dev
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://kombien:kombien_dev@db:5432/kombien
+      ADMIN_SECRET: dev-secret-non-utilise-en-prod
+      PORT: 3000
+      NODE_ENV: development
+    volumes:
+      - ../apps/api/src:/app/apps/api/src
+      - ../db:/app/db
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: node:22-alpine
+    working_dir: /app/apps/web
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE: http://localhost:3000
+    volumes:
+      - ../apps/web:/app/apps/web
+      - kombien_dev_web_node_modules:/app/apps/web/node_modules
+    ports:
+      - '127.0.0.1:5173:5173'
+    depends_on:
+      - api
+
+volumes:
+  kombien_dev_db:
+  kombien_dev_web_node_modules:
