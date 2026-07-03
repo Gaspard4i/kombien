@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0001_seed.sql — Données de seed Kombien (catégories, questions, badges)
+-- 0001_seed.sql — Données de seed Kombien (catégories, questions)
 -- =============================================================================
 --
 -- SCHÉMA ASSUMÉ (le backend n'est pas encore écrit ; ces colonnes sont
@@ -24,19 +24,13 @@
 --     report_count     INTEGER NOT NULL DEFAULT 0
 --   )
 --
---   badges(
---     id             SERIAL PRIMARY KEY,
---     slug           TEXT UNIQUE NOT NULL,
---     name_fr        TEXT NOT NULL,
---     name_en        TEXT NOT NULL,
---     description_fr TEXT NOT NULL,
---     description_en TEXT NOT NULL
---   )
---
 -- Les questions référencent leur catégorie via
 --   INSERT ... SELECT id FROM categories WHERE slug = '...'
 -- pour ne pas dépendre d'IDs en dur. Idempotence best-effort via
--- ON CONFLICT (slug) DO NOTHING sur categories et badges.
+-- ON CONFLICT (slug) DO NOTHING sur categories.
+--
+-- v2 : plus de table badges (persistance supprimée, cf. 0003_drop_persistence.sql).
+-- Les exploits de session sont calculés à la volée, jamais seedés.
 -- =============================================================================
 
 BEGIN;
@@ -254,70 +248,5 @@ FROM categories WHERE slug = 'voyage';
 INSERT INTO questions (category_id, text_fr, text_en, duration_seconds, status)
 SELECT id, 'Road trip côtier d''une semaine', 'A week-long coastal road trip', 604800, 'approved'
 FROM categories WHERE slug = 'voyage';
-
--- -----------------------------------------------------------------------------
--- Badges (10) — condition de déblocage vérifiable backend en commentaire.
--- Détails complets dans docs/GAME_DESIGN.md §8.
--- -----------------------------------------------------------------------------
-
--- CONDITION: profil games_played >= 1 après la fin d'une partie.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('first_game', 'Première fois', 'First Timer',
-   'Terminer sa première partie.', 'Finish your first game.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: sur une réponse, bonne réponse ET response_time_ms < 3000.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('speedrunner', 'Speedrunner', 'Speedrunner',
-   'Répondre correctement en moins de 3 secondes.', 'Answer correctly in under 3 seconds.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: mode ordre_de_grandeur, réponse exacte (3 pts base) au moins une fois.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('bullseye', 'Dans le mille', 'Bullseye',
-   'Trouver l''unité exacte en Ordre de grandeur.', 'Pick the exact unit in Order of magnitude.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: bonne réponse (GAME_DESIGN §6.1) aux N questions d'une même manche.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('perfect_round', 'Manche parfaite', 'Perfect Round',
-   'Répondre juste à toutes les questions d''une manche.', 'Get every question in a round right.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: le compteur de streak d'un joueur atteint >= 5 pendant la partie.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('on_fire', 'En feu', 'On Fire',
-   'Atteindre une série de 5 bonnes réponses.', 'Reach a streak of 5 correct answers.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: mode duel, joueur gagne (2 pts) ET ecart_absolu <= 0.10 * duration_seconds.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('sharpshooter', 'Tireur d''élite', 'Sharpshooter',
-   'Gagner un duel avec un écart inférieur à 10 %.', 'Win a duel within 10 % of the real duration.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: compteur profil duels_won >= 10 (cumul).
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('duel_master', 'Maître du duel', 'Duel Master',
-   'Remporter 10 duels au total.', 'Win 10 duels in total.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: score final d'un joueur dans une partie >= 100.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('centurion', 'Centurion', 'Centurion',
-   'Cumuler 100 points en une seule partie.', 'Score 100 points in a single game.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: profil a joué au moins une partie locale='fr' ET une locale='en'.
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('polyglot', 'Polyglotte', 'Polyglot',
-   'Jouer une partie en français et une en anglais.', 'Play one game in French and one in English.')
-ON CONFLICT (slug) DO NOTHING;
-
--- CONDITION: niveau(xp) >= 10 (niveau = floor(sqrt(xp/100)) + 1, GAME_DESIGN §7).
-INSERT INTO badges (slug, name_fr, name_en, description_fr, description_en) VALUES
-  ('time_lord', 'Seigneur du temps', 'Time Lord',
-   'Atteindre le niveau 10.', 'Reach level 10.')
-ON CONFLICT (slug) DO NOTHING;
 
 COMMIT;

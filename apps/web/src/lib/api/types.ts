@@ -17,43 +17,6 @@ export interface Question {
   duration_seconds: number;
 }
 
-export interface LeaderboardGlobalEntry {
-  pseudo: string;
-  xp: number;
-  level: number;
-}
-
-export interface LeaderboardCategoryEntry {
-  pseudo: string;
-  total_score: number;
-}
-
-export interface Badge {
-  slug: string;
-  name_fr: string;
-  name_en: string;
-  description_fr: string;
-  description_en: string;
-  unlocked_at: string;
-}
-
-export interface PlayerProfile {
-  pseudo: string;
-  xp: number;
-  level: number;
-  games_played: number;
-  duels_won: number;
-  created_at: string;
-  badges: Badge[];
-  stats: {
-    games: number;
-    total_score: number;
-    best_streak: number;
-    avg_accuracy: number;
-    wins: number;
-  };
-}
-
 export interface CreateQuestionInput {
   text_fr: string;
   text_en?: string;
@@ -78,9 +41,13 @@ export interface ReportQuestionResult {
   report_count: number;
 }
 
-// Réponse brute envoyée au backend — la vérité (score/xp/badges) est recalculée côté serveur.
+// Réponse brute envoyée au backend — la vérité (score/exploits) est recalculée côté serveur.
+// questionId permet au serveur de recharger duration_seconds/threshold_seconds depuis la
+// table questions (anti-triche, API_CONTRACT.md) : les valeurs envoyées ci-dessous ne sont
+// plus des sources de vérité, seulement l'affichage provisoire côté client.
 export interface RawAnswer {
   mode: GameMode;
+  questionId: number;
   roundIndex: number;
   responseTimeMs: number;
   durationSeconds: number;
@@ -113,14 +80,10 @@ export interface SubmitGamePlayerResult {
   accuracy: number;
   best_streak: number;
   is_winner: boolean;
-  xp_gained: number;
-  xp_total: number;
-  level: number;
-  new_badges: string[];
+  session_exploits: string[];
 }
 
 export interface SubmitGameResult {
-  game_id: number;
   is_draw: boolean;
   players: [SubmitGamePlayerResult, SubmitGamePlayerResult];
 }

@@ -8,8 +8,6 @@ export type Route =
   | { name: 'setup' }
   | { name: 'game' }
   | { name: 'end' }
-  | { name: 'leaderboard' }
-  | { name: 'profile'; pseudo: string }
   | { name: 'contribute' }
   | { name: 'admin' };
 

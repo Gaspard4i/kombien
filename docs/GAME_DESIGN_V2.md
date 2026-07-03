@@ -34,7 +34,7 @@ Certains badges v1 sont **calculables sur une seule partie** (`first_game` excep
 | `polyglot` | **Supprimé** (suppose un historique multi-langues). |
 | `time_lord` | **Supprimé** (dépend du niveau, donc de l'XP). |
 
-Restent donc **5 exploits de session** sur les 10 badges v1. Le cahier demande au moins 8 badges à l'origine (contrainte du prompt fondateur de game-designer v1) — cette contrainte portait sur un système persistant qui n'existe plus en v2 ; elle ne s'applique pas à un système d'exploits éphémères. Voir proposition d'extension en §0.4.
+Restent donc **6 exploits de session** sur les 10 badges v1. Le cahier demande au moins 8 badges à l'origine (contrainte du prompt fondateur de game-designer v1) — cette contrainte portait sur un système persistant qui n'existe plus en v2 ; elle ne s'applique pas à un système d'exploits éphémères. Voir proposition d'extension en §0.4.
 
 ### 0.3 Exploits de session — spécification
 
@@ -48,7 +48,7 @@ Renommage : « badge » → **« exploit »** (`achievement`), pour marquer la r
 
 ### 0.4 Proposition (non imposée) — récompenses de session supplémentaires
 
-L'utilisateur autorise à proposer, sans l'imposer, des récompenses de session non persistantes en complément des 5 exploits repris. Proposition concrète pour enrichir le feedback de fin de partie sans réintroduire de persistance :
+L'utilisateur autorise à proposer, sans l'imposer, des récompenses de session non persistantes en complément des 6 exploits repris. Proposition concrète pour enrichir le feedback de fin de partie sans réintroduire de persistance :
 
 - **Titres de fin de partie**, calculés une fois en fin de partie et attribués **à un seul joueur maximum chacun**, purement cosmétiques (aucun point, aucune trace après l'écran de fin) :
   - `le_plus_regulier` — plus faible variance d'écart en Duel, ou plus haut taux de bonnes réponses en Binaire/Ordre de grandeur.
@@ -298,7 +298,7 @@ Affiché sur l'écran principal après chaque question (mise à jour temps réel
 Résumé des choix normatifs de ce document, pour référence rapide :
 
 1. **Persistance** : suppression totale (profils, XP, niveaux, badges cumulés, classement global). Les pseudos redeviennent de simples libellés d'affichage.
-2. **Badges → exploits de session** : 5 des 10 badges v1 survivent en version non-persistante, scope partie uniquement, sans XP (§0.2-0.3).
+2. **Badges → exploits de session** : 6 des 10 badges v1 survivent en version non-persistante, scope partie uniquement, sans XP (§0.2-0.3).
 3. **Solo** : catégorie choisie par le joueur lui-même (pas de croisement) ; Duel en Solo = duel contre une « estimation fantôme » basée sur la magnitude naturelle, explicitement annoncé ; condition de fin additionnelle « nombre de manches fixe » (§1.1).
 4. **Duel à N joueurs** : barème par rang d'écart, top 2 seulement (2 pts / 1 pt / 0…), égalités en rangs denses partagés. Se réduit exactement au barème Duo v1 pour N=2 (§1.3).
 5. **Streak Duel à N joueurs** : bonne réponse = avoir marqué strictement plus de 0 point (rang 1 ou 2 ex-æquo inclus) (§1.3).
@@ -314,7 +314,7 @@ Résumé des choix normatifs de ce document, pour référence rapide :
 
 Choix produit non couverts par les décisions déjà tranchées ; nécessitent un arbitrage explicite avant implémentation.
 
-1. **Titres de fin de partie non persistants** (§0.4) : proposition ouverte (`le_plus_regulier`, `la_remontee`, `le_prudent`) en complément des 5 exploits repris. À valider, modifier ou écarter.
+1. **Titres de fin de partie non persistants** (§0.4) : proposition ouverte (`le_plus_regulier`, `la_remontee`, `le_prudent`) en complément des 6 exploits repris. À valider, modifier ou écarter.
 2. **Comparaison Solo inter-parties côté client** (§1.1, fin) : proposer un delta de score par rapport à la partie précédente **gardé uniquement en mémoire navigateur (localStorage)**, sans aucune trace serveur. Question ouverte : est-ce souhaité, ou le Solo doit-il rester strictement sans aucune trace, même côté client ?
 3. **Revote de thème périodique** (§2.2) : le vote a été spécifié comme un tirage unique en début de partie. Faut-il repositionner un vote toutes les X manches pour varier les thèmes en cours de partie longue (arrêt manuel) ? Non traité ici par défaut.
 4. **Estimation fantôme du Solo-Duel** (§1.1) : le choix (magnitude naturelle convertie en valeur pleine de son unité) est un curseur de difficulté arbitraire. Un fantôme plus dur (ex : magnitude naturelle + bruit aléatoire borné) ou plus facile est un simple paramètre à ajuster selon le ressenti en playtest — à valider après un premier essai plutôt qu'en pur papier.

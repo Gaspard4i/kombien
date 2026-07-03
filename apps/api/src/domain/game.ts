@@ -1,6 +1,6 @@
 // Agrégation d'une partie complète côté serveur : à partir des réponses brutes
-// de chaque joueur, recalcule score final, précision, meilleur streak, XP gagnée
-// et données par-réponse nécessaires à l'évaluation des badges.
+// de chaque joueur, recalcule score final, précision, meilleur streak et
+// données par-réponse nécessaires à l'évaluation des exploits de session.
 // Fonctions pures (pas d'I/O) — GAME_DESIGN §3-§9.
 
 import { type UnitSlug } from './units.ts';
@@ -11,12 +11,14 @@ import {
   type BinaryAnswer,
 } from './scoring.ts';
 import { applyAnswer, type GameMode } from './streak.ts';
-import { xpForAnswer, xpForGameEnd } from './xp.ts';
-import type { PlayedAnswer } from './badges.ts';
+import type { PlayedAnswer } from './exploits.ts';
 
-// Réponse brute d'un joueur à une question, selon le mode.
+// Réponse brute d'un joueur à une question, selon le mode. questionId permet
+// au service appelant de recharger la vérité terrain (durationSeconds,
+// thresholdSeconds) depuis la DB plutôt que de faire confiance au client.
 export interface RawAnswer {
   mode: GameMode;
+  questionId: number;
   roundIndex: number;
   responseTimeMs: number;
   durationSeconds: number;
@@ -46,8 +48,7 @@ export interface PlayerComputed {
   accuracy: number; // 0..1
   bestStreak: number;
   duelsWon: number; // duels gagnés (2 pts) dans cette partie
-  xpFromAnswers: number;
-  playedAnswers: PlayedAnswer[]; // pour l'évaluation des badges
+  playedAnswers: PlayedAnswer[]; // pour l'évaluation des exploits
 }
 
 // Calcule le résultat d'un joueur en rejouant ses réponses dans l'ordre.
@@ -58,7 +59,6 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
   let finalScore = 0;
   let goodAnswers = 0;
   let duelsWon = 0;
-  let xpFromAnswers = 0;
   const playedAnswers: PlayedAnswer[] = [];
 
   for (const raw of run.answers) {
@@ -98,13 +98,6 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
     finalScore += step.finalPoints;
     if (step.goodAnswer) goodAnswers += 1;
 
-    xpFromAnswers += xpForAnswer({
-      mode: raw.mode,
-      goodAnswer: step.goodAnswer,
-      exactMagnitude,
-      wonDuel,
-    });
-
     playedAnswers.push({
       mode: raw.mode,
       roundIndex: raw.roundIndex,
@@ -128,7 +121,6 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
     accuracy,
     bestStreak,
     duelsWon,
-    xpFromAnswers,
     playedAnswers,
   };
 }
@@ -143,10 +135,4 @@ export function decideWinner(scoreA: number, scoreB: number): WinnerResult {
   if (scoreA > scoreB) return { winnerIndex: 0, isDraw: false };
   if (scoreB > scoreA) return { winnerIndex: 1, isDraw: false };
   return { winnerIndex: null, isDraw: true };
-}
-
-// XP totale d'un joueur pour la partie (réponses + fin de partie), hors badges.
-// Les badges ajoutent +50 chacun, gérés à la persistance (idempotence).
-export function xpForPlayer(computed: PlayerComputed, isWinner: boolean): number {
-  return computed.xpFromAnswers + xpForGameEnd(isWinner);
 }

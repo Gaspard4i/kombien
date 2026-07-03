@@ -5,7 +5,6 @@
   },
   "nav": {
     "home": "Home",
-    "leaderboard": "Leaderboard",
     "contribute": "Contribute",
     "admin": "Admin",
     "back": "Back",
@@ -39,7 +38,6 @@
     "title": "Kombien",
     "subtitle": "The duo that estimates how time flies.",
     "play": "Play",
-    "leaderboard": "View leaderboard",
     "contribute": "Suggest a question",
     "select_language": "Choose language"
   },
@@ -119,48 +117,14 @@
     "final_score": "Final score",
     "accuracy": "Accuracy",
     "best_streak": "Best streak",
-    "xp_gained": "XP gained",
-    "level": "Level {{value}}",
-    "new_badges": "New badges",
-    "no_new_badges": "No new badge this time.",
+    "session_exploits": "Game exploits",
+    "no_exploits": "No exploit this time.",
     "play_again": "Play again",
     "back_home": "Back to home",
     "submitting": "Computing final scores…",
     "submit_error": "Could not save the game. Check your connection and try again."
   },
-  "leaderboard": {
-    "title": "Leaderboard",
-    "global": "Global",
-    "by_category": "By category",
-    "select_category": "Choose a category",
-    "xp": "XP",
-    "level": "Level",
-    "score": "Score",
-    "rank": "#{{value}}",
-    "empty": "No ranked players yet. Be the first to play!",
-    "loading": "Loading leaderboard…",
-    "load_error": "Could not load the leaderboard. Try again shortly.",
-    "view_profile": "View profile"
-  },
-  "profile": {
-    "title": "{{pseudo}}'s profile",
-    "games_played": "Games played",
-    "duels_won": "Duels won",
-    "total_score": "Total score",
-    "best_streak": "Best streak",
-    "avg_accuracy": "Average accuracy",
-    "wins": "Wins",
-    "badges_title": "Badges",
-    "badge_locked": "Locked",
-    "member_since": "Member since {{date}}",
-    "not_found": "This player doesn't exist yet. Check the nickname spelling.",
-    "loading": "Loading profile…",
-    "search_placeholder": "Search a nickname",
-    "search": "Search"
-  },
-  "badges": {
-    "first_game": "First Timer",
-    "first_game_desc": "Finish your first game.",
+  "exploits": {
     "speedrunner": "Speedrunner",
     "speedrunner_desc": "Answer correctly in under 3 seconds.",
     "bullseye": "Bullseye",
@@ -171,14 +135,8 @@
     "on_fire_desc": "Reach a streak of 5 correct answers.",
     "sharpshooter": "Sharpshooter",
     "sharpshooter_desc": "Win a duel within 10% of the actual duration.",
-    "duel_master": "Duel Master",
-    "duel_master_desc": "Win 10 duels in total.",
     "centurion": "Centurion",
-    "centurion_desc": "Score 100 points in a single game.",
-    "polyglot": "Polyglot",
-    "polyglot_desc": "Play a game in each language (fr and en).",
-    "time_lord": "Time Lord",
-    "time_lord_desc": "Reach level 10."
+    "centurion_desc": "Score 100 points in a single game."
   },
   "contribute": {
     "title": "Suggest a question",
@@ -228,7 +186,6 @@
   "errors": {
     "network_error": "Could not reach the server. Check your connection and try again.",
     "category_not_found": "This category doesn't exist.",
-    "player_not_found": "This player doesn't exist.",
     "question_not_found": "This question doesn't exist.",
     "unknown_error": "An unexpected error occurred. Try again."
   },

@@ -23,10 +23,6 @@
       <Icon name="clock" size="lg" />
       {t('home.play')}
     </Button>
-    <Button variant="secondary" fullWidth onclick={() => navigate({ name: 'leaderboard' })}>
-      <Icon name="stack" size="md" />
-      {t('home.leaderboard')}
-    </Button>
     <Button variant="ghost" fullWidth onclick={() => navigate({ name: 'contribute' })}>
       <Icon name="squares-four" size="md" />
       {t('home.contribute')}

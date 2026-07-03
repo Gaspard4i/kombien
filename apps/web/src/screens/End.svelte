@@ -1,7 +1,9 @@
 <script lang="ts">
   // Écran de fin (GAME_DESIGN.md §9.5) : POST /games envoie les réponses BRUTES accumulées ;
-  // le backend recalcule score/xp/badges (anti-triche, cf API_CONTRACT.md). L'affichage
+  // le backend recalcule score/streak/exploits (anti-triche, cf API_CONTRACT.md). L'affichage
   // n'utilise QUE la réponse serveur comme vérité, jamais le score provisoire du gameStore.
+  // session_exploits est un feedback de fin de partie non persistant (v2 lot 0 : plus d'XP/
+  // niveau/badges cumulés, cf PLAN_V2.md).
   import { onMount } from 'svelte';
   import { t, getLang } from '../lib/i18n';
   import { navigate } from '../lib/router/router.svelte';
@@ -104,26 +106,18 @@
               <dt>{t('end.best_streak')}</dt>
               <dd data-numeric>{player.best_streak}</dd>
             </div>
-            <div class="end__stat">
-              <dt>{t('end.xp_gained')}</dt>
-              <dd data-numeric>+{player.xp_gained}</dd>
-            </div>
-            <div class="end__stat">
-              <dt>{t('leaderboard.level')}</dt>
-              <dd data-numeric>{player.level}</dd>
-            </div>
           </dl>
 
           <div class="end__badges">
-            <span class="end__badges-title">{t('end.new_badges')}</span>
-            {#if player.new_badges.length === 0}
-              <p class="end__no-badges">{t('end.no_new_badges')}</p>
+            <span class="end__badges-title">{t('end.session_exploits')}</span>
+            {#if player.session_exploits.length === 0}
+              <p class="end__no-badges">{t('end.no_exploits')}</p>
             {:else}
               <div class="end__badge-list">
-                {#each player.new_badges as slug (slug)}
+                {#each player.session_exploits as slug (slug)}
                   <div class="end__badge">
                     <Icon name="medal-military" size="md" />
-                    <span>{t(`badges.${slug}`)}</span>
+                    <span>{t(`exploits.${slug}`)}</span>
                   </div>
                 {/each}
               </div>

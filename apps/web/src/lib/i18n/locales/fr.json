@@ -5,7 +5,6 @@
   },
   "nav": {
     "home": "Accueil",
-    "leaderboard": "Classement",
     "contribute": "Contribuer",
     "admin": "Admin",
     "back": "Retour",
@@ -39,7 +38,6 @@
     "title": "Kombien",
     "subtitle": "Le duo qui estime le temps qui passe.",
     "play": "Jouer",
-    "leaderboard": "Voir le classement",
     "contribute": "Proposer une question",
     "select_language": "Choisir la langue"
   },
@@ -119,48 +117,14 @@
     "final_score": "Score final",
     "accuracy": "Précision",
     "best_streak": "Meilleure série",
-    "xp_gained": "XP gagnée",
-    "level": "Niveau {{value}}",
-    "new_badges": "Nouveaux badges",
-    "no_new_badges": "Aucun nouveau badge cette fois.",
+    "session_exploits": "Exploits de la partie",
+    "no_exploits": "Aucun exploit cette fois.",
     "play_again": "Rejouer",
     "back_home": "Retour à l'accueil",
     "submitting": "Calcul des scores en cours…",
     "submit_error": "Impossible d'enregistrer la partie. Vérifie ta connexion et réessaie."
   },
-  "leaderboard": {
-    "title": "Classement",
-    "global": "Général",
-    "by_category": "Par catégorie",
-    "select_category": "Choisir une catégorie",
-    "xp": "XP",
-    "level": "Niveau",
-    "score": "Score",
-    "rank": "#{{value}}",
-    "empty": "Aucun joueur classé pour le moment. Sois le premier à jouer !",
-    "loading": "Chargement du classement…",
-    "load_error": "Impossible de charger le classement. Réessaie dans un instant.",
-    "view_profile": "Voir le profil"
-  },
-  "profile": {
-    "title": "Profil de {{pseudo}}",
-    "games_played": "Parties jouées",
-    "duels_won": "Duels gagnés",
-    "total_score": "Score cumulé",
-    "best_streak": "Meilleure série",
-    "avg_accuracy": "Précision moyenne",
-    "wins": "Victoires",
-    "badges_title": "Badges",
-    "badge_locked": "Verrouillé",
-    "member_since": "Membre depuis {{date}}",
-    "not_found": "Ce joueur n'existe pas encore. Vérifie l'orthographe du pseudo.",
-    "loading": "Chargement du profil…",
-    "search_placeholder": "Rechercher un pseudo",
-    "search": "Rechercher"
-  },
-  "badges": {
-    "first_game": "Première fois",
-    "first_game_desc": "Terminer sa première partie.",
+  "exploits": {
     "speedrunner": "Speedrunner",
     "speedrunner_desc": "Répondre correctement en moins de 3 secondes.",
     "bullseye": "Dans le mille",
@@ -171,14 +135,8 @@
     "on_fire_desc": "Atteindre une série de 5 bonnes réponses.",
     "sharpshooter": "Tireur d'élite",
     "sharpshooter_desc": "Gagner un duel avec un écart inférieur à 10 % de la durée réelle.",
-    "duel_master": "Maître du duel",
-    "duel_master_desc": "Remporter 10 duels au total.",
     "centurion": "Centurion",
-    "centurion_desc": "Cumuler 100 points en une seule partie.",
-    "polyglot": "Polyglotte",
-    "polyglot_desc": "Jouer une partie dans chaque langue (fr et en).",
-    "time_lord": "Seigneur du temps",
-    "time_lord_desc": "Atteindre le niveau 10."
+    "centurion_desc": "Cumuler 100 points en une seule partie."
   },
   "contribute": {
     "title": "Proposer une question",
@@ -228,7 +186,6 @@
   "errors": {
     "network_error": "Impossible de contacter le serveur. Vérifie ta connexion et réessaie.",
     "category_not_found": "Cette catégorie n'existe pas.",
-    "player_not_found": "Ce joueur n'existe pas.",
     "question_not_found": "Cette question n'existe pas.",
     "unknown_error": "Une erreur inattendue est survenue. Réessaie."
   },

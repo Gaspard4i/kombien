@@ -101,6 +101,7 @@
     const q = currentQuestion()!;
     return {
       mode: game.config!.mode,
+      questionId: q.id,
       roundIndex: game.roundNumber,
       responseTimeMs: Date.now() - answerStartedAt,
       durationSeconds: q.duration_seconds,

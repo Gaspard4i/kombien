@@ -2,9 +2,6 @@ import type {
   Category,
   CreateQuestionInput,
   CreateQuestionResult,
-  LeaderboardCategoryEntry,
-  LeaderboardGlobalEntry,
-  PlayerProfile,
   Question,
   ReportQuestionResult,
   SubmitGameInput,
@@ -68,18 +65,6 @@ export function getCategories(): Promise<Category[]> {
 
 export function getCategoryQuestions(slug: string, count = 5): Promise<Question[]> {
   return request(`/categories/${encodeURIComponent(slug)}/questions?count=${count}`);
-}
-
-export function getLeaderboardGlobal(limit = 20): Promise<LeaderboardGlobalEntry[]> {
-  return request(`/leaderboard?limit=${limit}`);
-}
-
-export function getLeaderboardByCategory(category: string, limit = 20): Promise<LeaderboardCategoryEntry[]> {
-  return request(`/leaderboard?category=${encodeURIComponent(category)}&limit=${limit}`);
-}
-
-export function getPlayer(pseudo: string): Promise<PlayerProfile> {
-  return request(`/players/${encodeURIComponent(pseudo)}`);
 }
 
 export function createQuestion(input: CreateQuestionInput): Promise<CreateQuestionResult> {
