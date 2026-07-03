@@ -153,6 +153,12 @@
     "streak": "Série",
     "multiplier": "×{{value}}"
   },
+  "leaderboard": {
+    "open": "Voir le classement",
+    "close": "Fermer le classement",
+    "in_progress_title": "Classement",
+    "accuracy_short": "{{value}}%"
+  },
   "end": {
     "title": "Fin de partie",
     "winner": "{{pseudo}} remporte la partie",

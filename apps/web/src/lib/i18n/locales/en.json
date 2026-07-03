@@ -153,6 +153,12 @@
     "streak": "Streak",
     "multiplier": "×{{value}}"
   },
+  "leaderboard": {
+    "open": "View leaderboard",
+    "close": "Close leaderboard",
+    "in_progress_title": "Leaderboard",
+    "accuracy_short": "{{value}}%"
+  },
   "end": {
     "title": "Game over",
     "winner": "{{pseudo}} wins the game",

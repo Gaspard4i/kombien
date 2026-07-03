@@ -49,6 +49,7 @@
   import OrdreDeGrandeurAnswer from './OrdreDeGrandeurAnswer.svelte';
   import DuelAnswer from './DuelAnswer.svelte';
   import RevealPanel from './RevealPanel.svelte';
+  import LeaderboardOverlay from '../../lib/components/LeaderboardOverlay.svelte';
 
   type Step =
     | { name: 'calibration-intro' }
@@ -80,6 +81,10 @@
   // attente de révélation. Index aligné sur game.players.
   let pendingAnswers = $state<(RawAnswer | null)[]>([]);
   let pendingOutcomes = $state<(RoundOutcome | null)[]>([]);
+
+  // Classement de session en cours de partie (Lot 7 v2, GAME_DESIGN_V2.md §0.1/§6.5) :
+  // overlay consultable à tout moment via ScoreBar, se ferme pour revenir au jeu.
+  let leaderboardOpen = $state(false);
 
   // Horodatage de début de réponse (temps de réaction, cf RawAnswer.responseTimeMs) ;
   // pas de $state, ce n'est pas affiché, seulement lu au moment de construire la réponse.
@@ -346,6 +351,13 @@
         }))
       : null,
   );
+
+  // Classement de session (Lot 7 v2) : scores/streaks provisoires du gameStore, pas de
+  // précision (accuracy) connue avant la réponse serveur de fin de partie -> colonne
+  // masquée par Leaderboard tant que `accuracy` est absent (variant 'compact').
+  const leaderboardEntries = $derived(
+    (game.players ?? []).map((p) => ({ pseudo: p.pseudo, score: p.score, bestStreak: p.bestStreak })),
+  );
 </script>
 
 <AppShell>
@@ -393,6 +405,7 @@
       <ScoreBar
         players={game.players}
         activeIndex={step.name === 'answer' || step.name === 'answer-transition' ? step.playerIndex : null}
+        onopenleaderboard={() => (leaderboardOpen = true)}
       />
     {/if}
 
@@ -440,6 +453,10 @@
         onnext={handleNext}
       />
     {/if}
+  {/if}
+
+  {#if leaderboardOpen}
+    <LeaderboardOverlay entries={leaderboardEntries} onclose={() => (leaderboardOpen = false)} />
   {/if}
 </AppShell>
 

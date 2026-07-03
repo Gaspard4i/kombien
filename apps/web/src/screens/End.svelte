@@ -17,6 +17,7 @@
   import ErrorMessage from '../lib/components/ErrorMessage.svelte';
   import Icon from '../lib/components/Icon.svelte';
   import KLogo from '../lib/components/KLogo.svelte';
+  import Leaderboard from '../lib/components/Leaderboard.svelte';
 
   const game = getGameState();
 
@@ -93,6 +94,17 @@
     <Button variant="primary" fullWidth onclick={handleBackHome}>{t('end.back_home')}</Button>
   {:else if result}
     <h1 class="end__title">{endTitle(result)}</h1>
+
+    <Leaderboard
+      variant="final"
+      entries={result.players.map((p) => ({
+        pseudo: p.pseudo,
+        score: p.score,
+        bestStreak: p.best_streak,
+        accuracy: p.accuracy,
+        isWinner: p.is_winner,
+      }))}
+    />
 
     <div class="end__players">
       {#each [...result.players].sort((a, b) => b.score - a.score) as player (player.pseudo)}

@@ -10,9 +10,12 @@
   interface Props {
     players: PlayerSlot[];
     activeIndex: number | null;
+    // Classement de session en cours de partie (Lot 7 v2) : optionnel, absent des écrans
+    // (calibration, tests) qui n'ont pas besoin du bouton d'ouverture.
+    onopenleaderboard?: () => void;
   }
 
-  const { players, activeIndex }: Props = $props();
+  const { players, activeIndex, onopenleaderboard }: Props = $props();
 
   function litSegments(streak: number): number {
     return Math.min(5, streak);
@@ -20,33 +23,69 @@
 </script>
 
 <div class="score-bar">
-  {#each players as player, i (player.pseudo)}
-    <div class="score-bar__player" class:score-bar__player--active={activeIndex === i}>
-      <span class="score-bar__pseudo">{player.pseudo}</span>
-      <span class="score-bar__score" data-numeric>{player.score}</span>
-      <div class="score-bar__streak">
-        <Icon name="lightning" size="sm" />
-        <div class="score-bar__gauge">
-          {#each { length: 5 } as _, s (s)}
-            <span class="score-bar__segment" class:score-bar__segment--lit={s < litSegments(player.streak)}></span>
-          {/each}
+  <div class="score-bar__players">
+    {#each players as player, i (player.pseudo)}
+      <div class="score-bar__player" class:score-bar__player--active={activeIndex === i}>
+        <span class="score-bar__pseudo">{player.pseudo}</span>
+        <span class="score-bar__score" data-numeric>{player.score}</span>
+        <div class="score-bar__streak">
+          <Icon name="lightning" size="sm" />
+          <div class="score-bar__gauge">
+            {#each { length: 5 } as _, s (s)}
+              <span class="score-bar__segment" class:score-bar__segment--lit={s < litSegments(player.streak)}></span>
+            {/each}
+          </div>
+          {#if streakMultiplier(player.streak) > 1}
+            <span class="score-bar__multiplier">{t('score.multiplier', { value: streakMultiplier(player.streak) })}</span>
+          {/if}
         </div>
-        {#if streakMultiplier(player.streak) > 1}
-          <span class="score-bar__multiplier">{t('score.multiplier', { value: streakMultiplier(player.streak) })}</span>
-        {/if}
+        <div class="score-bar__hinge" aria-hidden="true"></div>
       </div>
-      <div class="score-bar__hinge" aria-hidden="true"></div>
-    </div>
-  {/each}
+    {/each}
+  </div>
+
+  {#if onopenleaderboard}
+    <button type="button" class="score-bar__leaderboard-btn" onclick={onopenleaderboard} aria-label={t('leaderboard.open')}>
+      <Icon name="stack" size="md" />
+    </button>
+  {/if}
 </div>
 
 <style>
   .score-bar {
     display: flex;
+    align-items: stretch;
     gap: var(--gap-tight);
+  }
+
+  .score-bar__players {
+    display: flex;
+    gap: var(--gap-tight);
+    flex: 1;
+    min-width: 0;
     /* 4+ joueurs : le contenu défile horizontalement, jamais le body (mobile-first). */
     overflow-x: auto;
     scrollbar-width: thin;
+  }
+
+  .score-bar__leaderboard-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--touch-min);
+    min-height: var(--touch-min);
+    background: var(--flap);
+    color: var(--flap-ink);
+    border: none;
+    border-radius: var(--radius-card);
+    box-shadow: 0 0.1875rem 0 var(--hinge);
+    cursor: pointer;
+  }
+
+  .score-bar__leaderboard-btn:active {
+    transform: translateY(0.1875rem);
+    box-shadow: 0 0 0 var(--hinge);
   }
 
   .score-bar__player {
