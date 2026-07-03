@@ -5,7 +5,7 @@
 
 **Dernière mise à jour** : 2026-07-02
 **IMPORTANT RELANCE** : pour que les agents projet (.claude/agents/) soient routables, Claude Code DOIT être démarré DEPUIS le dossier `kombien/` lui-même (pas le parent `projects/`). Commande : `cd C:\Users\GaspardCatry\Documents\personel\projects\kombien` puis `claude`. Vérifier au démarrage que l'agent `frontend` existe (sinon fallback general-purpose avec mêmes instructions).
-**Phase courante** : Backend VALIDÉ (61 tests pass, 100% couverture domaine, build OK, poussé). Design system prêt. Frontend à lancer.
+**Phase courante** : EN LIGNE. Frontend + backend + infra déployés en prod sur https://kombien.gazai.fr (API https://kombien-api.gazai.fr). QA e2e 32/32, 61 tests API. Retours utilisateur à venir.
 **Prochaine action APRÈS REDÉMARRAGE de Claude Code** :
 1. Utiliser les AGENTS PROJET de `.claude/agents/` (game-designer, backend, frontend, design-reviewer, devops, qa) — le prompt l'exige. Ils ne sont routables qu'après un redémarrage (Claude Code lit .claude/agents/ au démarrage seulement).
 2. Lancer l'agent `frontend` : Vite+Svelte, i18n fr/en, les 3 modes, design split-flap (docs/DESIGN_SYSTEM.md), contrat API réel dans docs/API_CONTRACT.md. Le front envoie les réponses BRUTES à POST /games ; le backend recalcule score/xp/badges (anti-triche).
@@ -46,6 +46,7 @@ Aucun secret en clair (code/config/docs), jamais push .env, secrets prod génér
 - [ ] README complet
 
 ## Journal
+- 2026-07-03 : Frontend complet (3 modes, i18n, split-flap) + infra Docker/Traefik + CI. QA e2e 32/32, 6 bugs bloquants corrigés. Poussé sur main. **Déployé en prod gazai** : https://kombien.gazai.fr + https://kombien-api.gazai.fr (TLS OK, healthy). Secrets générés serveur.
 - 2026-07-02 : Phase 0 close. Infra gazai inspectée (Traefik v3, rootless, pattern dads-race). Nom = Kombien. Repo structuré, git init, CLAUDE.md + docs créés.
 
 ## Reprise rapide
