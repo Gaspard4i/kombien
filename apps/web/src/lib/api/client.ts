@@ -105,3 +105,75 @@ export function rejectQuestion(id: number, adminSecret: string): Promise<void> {
     headers: { 'x-admin-secret': adminSecret },
   });
 }
+
+// --- Import en masse (Lot 6) ---
+
+export interface ImportRowError {
+  line: number;
+  errors: string[];
+}
+
+export interface ImportReport {
+  total: number;
+  imported: number;
+  rejected: ImportRowError[];
+}
+
+export type ImportTemplateFormat = 'csv' | 'xlsx' | 'md';
+
+// Pas de request() générique ici : réponse multipart/binaire (xlsx) et upload de
+// fichier, pas du JSON pur des deux côtés.
+export async function importQuestionsFile(file: File, adminSecret: string): Promise<ImportReport> {
+  const body = new FormData();
+  body.append('file', file);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/admin/questions/import`, {
+      method: 'POST',
+      headers: { 'x-admin-secret': adminSecret },
+      body,
+    });
+  } catch {
+    throw new ApiError(0, 'network_error', 'network_error');
+  }
+
+  if (!response.ok) {
+    let code = 'unknown_error';
+    try {
+      const errBody = (await response.json()) as { error?: string };
+      if (errBody?.error) code = errBody.error;
+    } catch {
+      // Réponse d'erreur sans corps JSON exploitable : on garde le code générique.
+    }
+    throw new ApiError(response.status, code, code);
+  }
+
+  return (await response.json()) as ImportReport;
+}
+
+const TEMPLATE_FILENAMES: Record<ImportTemplateFormat, string> = {
+  csv: 'kombien-import-template.csv',
+  xlsx: 'kombien-import-template.xlsx',
+  md: 'kombien-import-template.md',
+};
+
+// Un <a href> ne peut pas poser le header x-admin-secret : on récupère le
+// fichier via fetch() puis on déclenche le téléchargement depuis un blob URL
+// (le secret ne transite jamais par l'URL/les logs).
+export async function downloadImportTemplate(format: ImportTemplateFormat, adminSecret: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/admin/questions/import/template?format=${format}`, {
+    headers: { 'x-admin-secret': adminSecret },
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, 'template_download_error', 'template_download_error');
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = TEMPLATE_FILENAMES[format];
+  link.click();
+  URL.revokeObjectURL(url);
+}

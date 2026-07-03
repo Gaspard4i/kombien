@@ -40,10 +40,7 @@
         end_condition: config.endCondition,
         target_score: config.endCondition === 'points' ? config.targetScore : undefined,
         rounds_played: game.roundNumber,
-        players: [
-          { pseudo: players[0].pseudo, answers: players[0].answers },
-          { pseudo: players[1].pseudo, answers: players[1].answers },
-        ],
+        players: players.map((p) => ({ pseudo: p.pseudo, answers: p.answers })),
       });
     } catch (err) {
       submitError = err instanceof ApiError ? t(`errors.${err.code}`) : t('errors.network_error');
@@ -61,6 +58,15 @@
     resetGame();
     navigate({ name: 'home' });
   }
+
+  // Vainqueur unique, co-vainqueurs à égalité de tête (GAME_DESIGN_V2.md §1.3), ou match
+  // nul général (is_draw serveur, tous à égalité).
+  function endTitle(r: SubmitGameResult): string {
+    if (r.is_draw) return t('end.draw');
+    const winners = r.players.filter((p) => p.is_winner);
+    if (winners.length === 1) return t('end.winner', { pseudo: winners[0]!.pseudo });
+    return t('end.co_winners', { pseudos: winners.map((w) => w.pseudo).join(', ') });
+  }
 </script>
 
 <AppShell>
@@ -75,16 +81,10 @@
     <ErrorMessage message={submitError} />
     <Button variant="primary" fullWidth onclick={handleBackHome}>{t('end.back_home')}</Button>
   {:else if result}
-    <h1 class="end__title">
-      {#if result.is_draw}
-        {t('end.draw')}
-      {:else}
-        {t('end.winner', { pseudo: result.players.find((p) => p.is_winner)?.pseudo ?? '' })}
-      {/if}
-    </h1>
+    <h1 class="end__title">{endTitle(result)}</h1>
 
     <div class="end__players">
-      {#each result.players as player (player.pseudo)}
+      {#each [...result.players].sort((a, b) => b.score - a.score) as player (player.pseudo)}
         <Card>
           <div class="end__player-head">
             <span class="end__pseudo">{player.pseudo}</span>

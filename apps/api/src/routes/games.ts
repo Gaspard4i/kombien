@@ -27,6 +27,10 @@ const rawAnswerSchema = {
     chosenUnit: { type: 'string' },
     estValue: { type: 'number', exclusiveMinimum: 0 },
     estUnit: { type: 'string' },
+    // opponentEstValue/opponentEstUnit (contrat v1, un seul adversaire) : acceptés mais
+    // ignorés dès que présents plusieurs joueurs. Le service reconstruit les estimations
+    // adverses réelles à partir des estValue/estUnit de TOUS les joueurs sur le même
+    // questionId (GAME_DESIGN_V2.md §1.3, anti-triche : jamais confiance au client).
     opponentEstValue: { type: 'number', exclusiveMinimum: 0 },
     opponentEstUnit: { type: 'string' },
   },
@@ -50,9 +54,12 @@ export async function gamesRoutes(app: FastifyInstance): Promise<void> {
             target_score: { type: 'integer', minimum: 1 },
             rounds_played: { type: 'integer', minimum: 0 },
             players: {
+              // GAME_DESIGN_V2.md §1.3 : 2 à 8 joueurs pass-and-play (v1 lot 0 imposait
+              // exactement 2 ; N-joueurs = lot 1). 8 = plafond raisonnable côté UX mobile,
+              // aligné sur Setup.svelte MAX_PLAYERS.
               type: 'array',
               minItems: 2,
-              maxItems: 2,
+              maxItems: 8,
               items: {
                 type: 'object',
                 required: ['pseudo', 'answers'],

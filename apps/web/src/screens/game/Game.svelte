@@ -1,16 +1,17 @@
 <script lang="ts">
-  // Orchestrateur de la manche (GAME_DESIGN.md §9.2-§9.4). Machine d'état locale :
-  // category-pick (chooser choisit) -> loading (tirage des questions) -> pour chaque
-  // question : transition/answer par joueur (ou par estimation en duel) -> reveal -> question
-  // suivante ou manche suivante. Le score affiché est provisoire (lib/domain/scoring.ts) ;
-  // la vérité vient de POST /games à la fin de la partie (End.svelte).
+  // Orchestrateur de la manche (GAME_DESIGN.md §9.2-§9.4, GAME_DESIGN_V2.md §1.3 pour N
+  // joueurs). Machine d'état locale : category-pick (chooser choisit) -> loading (tirage des
+  // questions) -> pour chaque question : transition/answer EN BOUCLE pour chacun des N joueurs
+  // (ou par estimation en duel) -> reveal -> question suivante ou manche suivante. Le score
+  // affiché est provisoire (lib/domain/scoring.ts) ; la vérité vient de POST /games à la fin
+  // de la partie (End.svelte).
   import { onMount } from 'svelte';
   import { t, getLang } from '../../lib/i18n';
   import { navigate } from '../../lib/router/router.svelte';
   import { getCategories, getCategoryQuestions, ApiError } from '../../lib/api/client';
   import type { Category, RawAnswer } from '../../lib/api/types';
   import { toSeconds, type Unit } from '../../lib/domain/units';
-  import { scoreBinaire, scoreOrdreDeGrandeur, scoreDuel, type RoundOutcome } from '../../lib/domain/scoring';
+  import { scoreBinaire, scoreOrdreDeGrandeur, scoreDuelRanked, type RoundOutcome } from '../../lib/domain/scoring';
   import {
     getGameState,
     setRoundQuestions,
@@ -38,8 +39,8 @@
     | { name: 'category-pick' }
     | { name: 'loading-questions' }
     | { name: 'load-error'; message: string }
-    | { name: 'answer-transition'; playerIndex: 0 | 1 }
-    | { name: 'answer'; playerIndex: 0 | 1 }
+    | { name: 'answer-transition'; playerIndex: number }
+    | { name: 'answer'; playerIndex: number }
     | { name: 'reveal' };
 
   const game = getGameState();
@@ -48,11 +49,10 @@
   let allCategories = $state<Category[]>([]);
   let currentCategory = $state<Category>(game.config!.category);
 
-  // Réponses brutes de la question en cours, en attente de révélation.
-  let pendingAnswerA = $state<RawAnswer | null>(null);
-  let pendingAnswerB = $state<RawAnswer | null>(null);
-  let pendingOutcomeA = $state<RoundOutcome | null>(null);
-  let pendingOutcomeB = $state<RoundOutcome | null>(null);
+  // Réponses brutes + résultats provisoires de la question en cours, un par joueur, en
+  // attente de révélation. Index aligné sur game.players.
+  let pendingAnswers = $state<(RawAnswer | null)[]>([]);
+  let pendingOutcomes = $state<(RoundOutcome | null)[]>([]);
 
   // Horodatage de début de réponse (temps de réaction, cf RawAnswer.responseTimeMs) ;
   // pas de $state, ce n'est pas affiché, seulement lu au moment de construire la réponse.
@@ -75,24 +75,27 @@
     }
   }
 
+  function playerCount(): number {
+    return game.players?.length ?? 0;
+  }
+
+  // Rotation circulaire (GAME_DESIGN_V2.md §1.3) : le chooser choisit pour le joueur suivant.
   function chooserPseudo(): string {
     return game.players![game.chooserIndex].pseudo;
   }
 
   function answererPseudo(): string {
-    const answererIndex = game.chooserIndex === 0 ? 1 : 0;
+    const answererIndex = (game.chooserIndex + 1) % playerCount();
     return game.players![answererIndex].pseudo;
   }
 
   function beginQuestion(): void {
-    pendingAnswerA = null;
-    pendingAnswerB = null;
-    pendingOutcomeA = null;
-    pendingOutcomeB = null;
+    pendingAnswers = game.players!.map(() => null);
+    pendingOutcomes = game.players!.map(() => null);
     step = { name: 'answer-transition', playerIndex: 0 };
   }
 
-  function handleTransitionReady(playerIndex: 0 | 1): void {
+  function handleTransitionReady(playerIndex: number): void {
     answerStartedAt = Date.now();
     step = { name: 'answer', playerIndex };
   }
@@ -109,62 +112,67 @@
     };
   }
 
-  function handleBinaireAnswer(playerIndex: 0 | 1, answer: 'yes' | 'no'): void {
+  function goToNextPlayerOrReveal(playerIndex: number): void {
+    const nextIndex = playerIndex + 1;
+    if (nextIndex < playerCount()) {
+      step = { name: 'answer-transition', playerIndex: nextIndex };
+    } else {
+      step = { name: 'reveal' };
+    }
+  }
+
+  function handleBinaireAnswer(playerIndex: number, answer: 'yes' | 'no'): void {
     const q = currentQuestion()!;
     const raw = buildRawAnswer({ binaryAnswer: answer, thresholdSeconds: currentCategory.threshold_seconds });
     const outcome = scoreBinaire(answer, q.duration_seconds, currentCategory.threshold_seconds);
     commitAnswer(playerIndex, raw, outcome);
   }
 
-  function handleOrdreAnswer(playerIndex: 0 | 1, unit: Unit): void {
+  function handleOrdreAnswer(playerIndex: number, unit: Unit): void {
     const q = currentQuestion()!;
     const raw = buildRawAnswer({ chosenUnit: unit });
     const outcome = scoreOrdreDeGrandeur(unit, q.duration_seconds);
     commitAnswer(playerIndex, raw, outcome);
   }
 
-  function handleDuelAnswer(playerIndex: 0 | 1, value: number, unit: Unit): void {
+  // Duel : chaque joueur saisit son estimation ; on ne connaît le classement qu'une fois
+  // que TOUS ont répondu (GAME_DESIGN_V2.md §1.3 : classement par rang d'écart à N joueurs).
+  function handleDuelAnswer(playerIndex: number, value: number, unit: Unit): void {
     const raw = buildRawAnswer({ estValue: value, estUnit: unit });
+    pendingAnswers[playerIndex] = raw;
 
-    if (playerIndex === 0) {
-      pendingAnswerA = raw;
-      step = { name: 'answer-transition', playerIndex: 1 };
+    const nextIndex = playerIndex + 1;
+    if (nextIndex < playerCount()) {
+      step = { name: 'answer-transition', playerIndex: nextIndex };
       return;
     }
 
-    // Deuxième joueur : les deux estimations sont connues, on peut scorer le duel.
+    // Dernier joueur : toutes les estimations sont connues, on calcule le classement.
     const q = currentQuestion()!;
-    const secondsA = toSeconds(pendingAnswerA!.estValue!, pendingAnswerA!.estUnit!);
-    const secondsB = toSeconds(value, unit);
-    const outcomeA = scoreDuel(secondsA, secondsB, q.duration_seconds);
-    const outcomeB = scoreDuel(secondsB, secondsA, q.duration_seconds);
+    const estimateSeconds = pendingAnswers.map((a) => toSeconds(a!.estValue!, a!.estUnit!));
+    const outcomes = scoreDuelRanked(estimateSeconds, q.duration_seconds);
 
-    const finalAnswerA: RawAnswer = { ...pendingAnswerA!, opponentEstValue: value, opponentEstUnit: unit };
-    const finalAnswerB: RawAnswer = { ...raw, opponentEstValue: pendingAnswerA!.estValue, opponentEstUnit: pendingAnswerA!.estUnit };
-
-    pendingAnswerA = finalAnswerA;
-    pendingAnswerB = finalAnswerB;
-    pendingOutcomeA = outcomeA;
-    pendingOutcomeB = outcomeB;
-    recordAnswer(0, finalAnswerA, outcomeA.points, outcomeA.isGoodAnswer);
-    recordAnswer(1, finalAnswerB, outcomeB.points, outcomeB.isGoodAnswer);
+    // opponentEstValue/opponentEstUnit (contrat v1, un seul adversaire) n'a de sens qu'à
+    // 2 joueurs ; au-delà, le serveur recalcule le classement à N joueurs par questionId.
+    if (playerCount() === 2) {
+      pendingAnswers = pendingAnswers.map((a, i) => {
+        const opponent = pendingAnswers[1 - i]!;
+        return { ...a!, opponentEstValue: opponent.estValue, opponentEstUnit: opponent.estUnit };
+      });
+    }
+    pendingOutcomes = outcomes;
+    pendingAnswers.forEach((a, i) => recordAnswer(i, a!, outcomes[i]!.points, outcomes[i]!.isGoodAnswer));
     step = { name: 'reveal' };
   }
 
-  function commitAnswer(playerIndex: 0 | 1, raw: RawAnswer, outcome: RoundOutcome): void {
+  function commitAnswer(playerIndex: number, raw: RawAnswer, outcome: RoundOutcome): void {
     recordAnswer(playerIndex, raw, outcome.points, outcome.isGoodAnswer);
-    if (playerIndex === 0) {
-      pendingAnswerA = raw;
-      pendingOutcomeA = outcome;
-      step = { name: 'answer-transition', playerIndex: 1 };
-    } else {
-      pendingAnswerB = raw;
-      pendingOutcomeB = outcome;
-      step = { name: 'reveal' };
-    }
+    pendingAnswers[playerIndex] = raw;
+    pendingOutcomes[playerIndex] = outcome;
+    goToNextPlayerOrReveal(playerIndex);
   }
 
-  function handleDuelAnswerFor(playerIndex: 0 | 1): (value: number, unit: Unit) => void {
+  function handleDuelAnswerFor(playerIndex: number): (value: number, unit: Unit) => void {
     return (value, unit) => handleDuelAnswer(playerIndex, value, unit);
   }
 
@@ -212,6 +220,15 @@
 
   const question = $derived(currentQuestion());
   const isLastQuestionOfRound = $derived(game.questionIndex + 1 >= game.questions.length);
+  const revealPlayers = $derived(
+    game.players && pendingOutcomes.every((o) => o !== null)
+      ? game.players.map((p, i) => ({
+          pseudo: p.pseudo,
+          isGoodAnswer: pendingOutcomes[i]!.isGoodAnswer,
+          points: pendingOutcomes[i]!.points,
+        }))
+      : null,
+  );
 </script>
 
 <AppShell>
@@ -279,15 +296,12 @@
       {:else}
         <DuelAnswer onanswer={handleDuelAnswerFor(answerPlayerIndex)} />
       {/if}
-    {:else if step.name === 'reveal' && question && pendingOutcomeA && pendingOutcomeB}
+    {:else if step.name === 'reveal' && question && revealPlayers}
       <RevealPanel
         questionId={question.id}
         lang={getLang()}
         durationSeconds={question.duration_seconds}
-        players={[
-          { pseudo: game.players![0].pseudo, isGoodAnswer: pendingOutcomeA.isGoodAnswer, points: pendingOutcomeA.points },
-          { pseudo: game.players![1].pseudo, isGoodAnswer: pendingOutcomeB.isGoodAnswer, points: pendingOutcomeB.points },
-        ]}
+        players={revealPlayers}
         {isLastQuestionOfRound}
         onnext={handleNext}
       />

@@ -3,12 +3,13 @@
 // données par-réponse nécessaires à l'évaluation des exploits de session.
 // Fonctions pures (pas d'I/O) — GAME_DESIGN §3-§9.
 
-import { type UnitSlug } from './units.ts';
+import { type UnitSlug, toSeconds } from './units.ts';
 import {
   scoreBinary,
   scoreMagnitude,
-  scoreDuel,
+  scoreDuelRanked,
   type BinaryAnswer,
+  type DuelEstimate,
 } from './scoring.ts';
 import { applyAnswer, type GameMode } from './streak.ts';
 import type { PlayedAnswer } from './exploits.ts';
@@ -30,11 +31,26 @@ export interface RawAnswer {
   // ordre de grandeur
   chosenUnit?: UnitSlug;
 
-  // duel (perspective de CE joueur)
+  // duel (perspective de CE joueur) : estimation propre + estimations de TOUS les autres
+  // joueurs sur la même question (GAME_DESIGN_V2.md §1.3, classement par rang d'écart à N
+  // joueurs). opponentEstValue/opponentEstUnit (contrat v1, un seul adversaire) restent
+  // acceptés en alias du cas N=2 pour compatibilité, mais opponentEstimates est la source
+  // de vérité dès que présente.
   estValue?: number;
   estUnit?: UnitSlug;
   opponentEstValue?: number;
   opponentEstUnit?: UnitSlug;
+  opponentEstimates?: DuelEstimate[];
+}
+
+// Normalise les adversaires d'une réponse duel en liste, quel que soit le format
+// d'entrée (v1 un seul adversaire, ou v2 liste explicite pour N joueurs).
+function resolveOpponentEstimates(raw: RawAnswer): DuelEstimate[] {
+  if (raw.opponentEstimates) return raw.opponentEstimates;
+  if (raw.opponentEstValue !== undefined && raw.opponentEstUnit !== undefined) {
+    return [{ value: raw.opponentEstValue, unit: raw.opponentEstUnit }];
+  }
+  return [];
 }
 
 export interface PlayerRun {
@@ -76,15 +92,17 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
       basePoints = r.points;
       exactMagnitude = r.exact;
     } else {
-      const r = scoreDuel(
-        { value: raw.estValue!, unit: raw.estUnit! },
-        { value: raw.opponentEstValue!, unit: raw.opponentEstUnit! },
-        raw.durationSeconds,
-      );
-      basePoints = r.pointsA;
-      opponentBasePoints = r.pointsB;
-      duelErrorSeconds = r.errorA;
-      wonDuel = r.pointsA === 2;
+      const self: DuelEstimate = { value: raw.estValue!, unit: raw.estUnit! };
+      const opponents = resolveOpponentEstimates(raw);
+      const estimates = [self, ...opponents];
+      const points = scoreDuelRanked(estimates, raw.durationSeconds);
+      basePoints = points[0]!;
+      // Le meilleur des points adverses détermine si CE joueur a "gagné ou égalisé"
+      // (§6.1 : bonne réponse duel = marquer >= aux autres). Généralise le cas 1
+      // adversaire (v1) où opponentBasePoints est simplement l'unique autre point.
+      opponentBasePoints = points.length > 1 ? Math.max(...points.slice(1)) : 0;
+      duelErrorSeconds = Math.abs(toSeconds(self.value, self.unit) - raw.durationSeconds);
+      wonDuel = basePoints === 2;
       if (wonDuel) duelsWon += 1;
     }
 
@@ -125,14 +143,22 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
   };
 }
 
-// Détermine le(s) vainqueur(s) d'une partie à deux joueurs. Égalité -> match nul.
+// Détermine le(s) vainqueur(s) d'une partie à N joueurs (GAME_DESIGN_V2.md §1.3) : le(s)
+// joueur(s) au score le plus élevé gagnent. isDraw = true seulement si TOUS les joueurs
+// sont à égalité (match nul général) ; une égalité de tête entre certains joueurs seulement
+// (co-vainqueurs) n'est pas un match nul. Se réduit exactement au comportement v1 pour 2
+// joueurs (isDraw ssi les deux scores sont égaux).
 export interface WinnerResult {
-  winnerIndex: number | null; // 0, 1, ou null (match nul)
-  isDraw: boolean;
+  winnerIndices: number[]; // indices des joueurs au score le plus élevé (1 ou plusieurs)
+  isDraw: boolean; // true ssi égalité générale (tous les joueurs à égalité)
 }
 
-export function decideWinner(scoreA: number, scoreB: number): WinnerResult {
-  if (scoreA > scoreB) return { winnerIndex: 0, isDraw: false };
-  if (scoreB > scoreA) return { winnerIndex: 1, isDraw: false };
-  return { winnerIndex: null, isDraw: true };
+export function decideWinners(scores: number[]): WinnerResult {
+  const maxScore = Math.max(...scores);
+  const winnerIndices = scores.reduce<number[]>((acc, s, i) => {
+    if (s === maxScore) acc.push(i);
+    return acc;
+  }, []);
+  const isDraw = winnerIndices.length === scores.length && scores.length > 1;
+  return { winnerIndices, isDraw };
 }

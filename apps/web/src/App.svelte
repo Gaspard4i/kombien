@@ -7,6 +7,8 @@
   import End from './screens/End.svelte';
   import Contribute from './screens/Contribute.svelte';
   import Admin from './screens/Admin.svelte';
+  import AdminImport from './screens/AdminImport.svelte';
+  import AdminBulkCreate from './screens/AdminBulkCreate.svelte';
 
   const route = $derived(getRoute());
 </script>
@@ -23,4 +25,8 @@
   <Contribute />
 {:else if route.name === 'admin'}
   <Admin />
+{:else if route.name === 'admin-import'}
+  <AdminImport adminSecret={route.adminSecret} />
+{:else if route.name === 'admin-bulk-create'}
+  <AdminBulkCreate adminSecret={route.adminSecret} />
 {/if}

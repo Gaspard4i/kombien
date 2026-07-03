@@ -48,6 +48,16 @@
     }
   }
 
+  function goToImport(): void {
+    if (!adminSecret) return;
+    navigate({ name: 'admin-import', adminSecret });
+  }
+
+  function goToBulkCreate(): void {
+    if (!adminSecret) return;
+    navigate({ name: 'admin-bulk-create', adminSecret });
+  }
+
   async function handleApprove(id: number): Promise<void> {
     if (!adminSecret) return;
     actionError = null;
@@ -102,6 +112,17 @@
       {t('admin.unlock')}
     </Button>
   {:else}
+    <div class="admin__tools">
+      <Button variant="secondary" fullWidth onclick={goToImport}>
+        <Icon name="stack" size="md" />
+        {t('admin.import_link')}
+      </Button>
+      <Button variant="secondary" fullWidth onclick={goToBulkCreate}>
+        <Icon name="plus" size="md" />
+        {t('admin.bulk_create_link')}
+      </Button>
+    </div>
+
     <div class="admin__toolbar">
       <h2 class="admin__pending-title">{t('admin.pending_title')}</h2>
       <Button variant="ghost" onclick={reload}>
@@ -183,10 +204,17 @@
     box-shadow: 0 0.125rem 0 var(--hinge);
   }
 
+  .admin__tools {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-tight);
+  }
+
   .admin__toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    margin-top: var(--gap);
   }
 
   .admin__pending-title {

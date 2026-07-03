@@ -20,9 +20,10 @@
   const MODES: GameMode[] = ['binaire', 'ordre_de_grandeur', 'duel'];
   const TARGET_SCORE_OPTIONS = [30, 50, 100];
   const QUESTIONS_PER_ROUND = 5;
+  const MIN_PLAYERS = 2;
+  const MAX_PLAYERS = 8;
 
-  let pseudoA = $state('');
-  let pseudoB = $state('');
+  let pseudos = $state<string[]>(['', '']);
   let mode = $state<GameMode | null>(null);
   let categories = $state<Category[]>([]);
   let selectedCategorySlug = $state<string | null>(null);
@@ -42,11 +43,22 @@
     }
   });
 
+  function addPlayer(): void {
+    if (pseudos.length >= MAX_PLAYERS) return;
+    pseudos.push('');
+  }
+
+  function removePlayer(index: number): void {
+    if (pseudos.length <= MIN_PLAYERS) return;
+    pseudos.splice(index, 1);
+  }
+
   function validate(): string | null {
-    const a = pseudoA.trim();
-    const b = pseudoB.trim();
-    if (!a || !b) return t('setup.errors.pseudo_required');
-    if (a.toLowerCase() === b.toLowerCase()) return t('setup.errors.pseudo_same');
+    const trimmed = pseudos.map((p) => p.trim());
+    if (trimmed.length < MIN_PLAYERS) return t('setup.errors.min_players');
+    if (trimmed.some((p) => !p)) return t('setup.errors.pseudo_required');
+    const lowered = trimmed.map((p) => p.toLowerCase());
+    if (new Set(lowered).size !== lowered.length) return t('setup.errors.pseudo_same');
     if (!mode) return t('setup.errors.mode_required');
     if (!selectedCategorySlug) return t('setup.errors.category_required');
     return null;
@@ -65,8 +77,7 @@
         targetScore,
         questionsPerRound: QUESTIONS_PER_ROUND,
       },
-      pseudoA.trim(),
-      pseudoB.trim(),
+      pseudos.map((p) => p.trim()),
     );
     navigate({ name: 'game' });
   }
@@ -83,28 +94,39 @@
   <h1 class="setup__title">{t('setup.title')}</h1>
 
   <Card>
-    <div class="setup__field">
-      <label class="setup__label" for="pseudo-a">{t('setup.player_a_label')}</label>
-      <input
-        id="pseudo-a"
-        class="setup__input"
-        type="text"
-        maxlength="24"
-        placeholder={t('setup.player_a_placeholder')}
-        bind:value={pseudoA}
-      />
-    </div>
-    <div class="setup__field">
-      <label class="setup__label" for="pseudo-b">{t('setup.player_b_label')}</label>
-      <input
-        id="pseudo-b"
-        class="setup__input"
-        type="text"
-        maxlength="24"
-        placeholder={t('setup.player_b_placeholder')}
-        bind:value={pseudoB}
-      />
-    </div>
+    <h2 class="setup__section-title setup__players-title">{t('setup.players_title')}</h2>
+    {#each pseudos as _, i (i)}
+      <div class="setup__field setup__player-field">
+        <div class="setup__player-row">
+          <label class="setup__label" for={`pseudo-${i}`}>{t('setup.player_label', { number: i + 1 })}</label>
+          {#if pseudos.length > MIN_PLAYERS}
+            <button
+              type="button"
+              class="setup__remove-player"
+              aria-label={t('setup.remove_player')}
+              onclick={() => removePlayer(i)}
+            >
+              <Icon name="minus" size="sm" />
+            </button>
+          {/if}
+        </div>
+        <input
+          id={`pseudo-${i}`}
+          class="setup__input"
+          type="text"
+          maxlength="24"
+          placeholder={t('setup.player_placeholder', { number: i + 1 })}
+          bind:value={pseudos[i]}
+        />
+      </div>
+    {/each}
+
+    {#if pseudos.length < MAX_PLAYERS}
+      <button type="button" class="setup__add-player" onclick={addPlayer}>
+        <Icon name="plus" size="sm" />
+        {t('setup.add_player')}
+      </button>
+    {/if}
   </Card>
 
   <section class="setup__section">
@@ -220,6 +242,51 @@
 
   .setup__field + .setup__field {
     margin-top: var(--gap);
+  }
+
+  .setup__players-title {
+    margin-bottom: var(--gap);
+  }
+
+  .setup__player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap-tight);
+  }
+
+  .setup__remove-player {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-min);
+    height: var(--touch-min);
+    background: var(--flap);
+    color: var(--flap-ink);
+    border: none;
+    border-radius: var(--radius-flap);
+    box-shadow: 0 0.125rem 0 var(--hinge);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .setup__add-player {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: var(--touch-min);
+    width: 100%;
+    margin-top: var(--gap);
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    color: var(--amber);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: var(--fs-body);
+    border: 1px dashed var(--amber-dim);
+    border-radius: var(--radius-card);
+    cursor: pointer;
   }
 
   .setup__label {

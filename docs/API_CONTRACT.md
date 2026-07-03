@@ -43,9 +43,9 @@ Body :
   end_condition?: "points" | "manual",
   target_score?: int,
   rounds_played?: int,
-  players: [  // exactement 2 (v2 lot 0 ; N-joueurs = lot 1)
+  players: [  // 2 à 8 joueurs (v2 lot 1 : N-joueurs pass-and-play, GAME_DESIGN_V2.md §1.3)
     { pseudo, answers: [RawAnswer, ...] },
-    { pseudo, answers: [RawAnswer, ...] }
+    ...
   ]
 }
 ```
@@ -67,15 +67,34 @@ depuis la table `questions` par cet id, et ignore les valeurs envoyées par le
 client dans `durationSeconds`/`thresholdSeconds` — anti-triche renforcé, on ne
 fait plus confiance à la vérité terrain déclarée par le client.
 
+Duel à N joueurs (lot 1) : le client envoie toujours `estValue`/`estUnit` (sa
+propre estimation) par réponse ; `opponentEstValue`/`opponentEstUnit` (un seul
+adversaire, contrat v1) restent acceptés mais ne sont **jamais lus** dès que la
+partie compte plus de 2 joueurs. Le serveur reconstruit lui-même, pour chaque
+`questionId`, la liste des estimations de **tous** les autres joueurs de la
+partie à partir de leurs `estValue`/`estUnit` réels (jamais depuis les champs
+`opponentEst*` déclarés par le client — anti-triche), puis applique le barème
+(GAME_DESIGN_V2.md §1.3) : **seul le groupe de tête** (le ou les joueurs au
+plus petit écart absolu) marque des points, en se partageant un pool fixe de 2
+points (`floor(2 / k)`, k = nombre d'ex-æquo en tête) ; tous les autres joueurs
+marquent 0. Se réduit exactement au barème Duel v1 pour 2 joueurs (k=1 -> 2/0,
+k=2 en cas d'égalité -> 1/1).
+
 Réponse 201 :
 ```
 {
-  is_draw,
+  is_draw,       // true ssi TOUS les joueurs sont à égalité (match nul général)
   players: [
     { pseudo, score, accuracy, best_streak, is_winner, session_exploits: [slug,...] }
   ]
 }
 ```
+`is_winner` : true pour le(s) joueur(s) au score le plus élevé. En Multi, une
+égalité de tête entre certains joueurs seulement (pas tous) produit des
+**co-vainqueurs** (`is_winner: true` pour chacun, `is_draw: false`) — ce n'est
+un match nul général (`is_draw: true`, tous `is_winner: false`) que si tous les
+joueurs de la partie sont à égalité.
+
 `session_exploits` (remplace `new_badges` v1) : sous-ensemble de `speedrunner`,
 `bullseye`, `perfect_round`, `on_fire`, `sharpshooter`, `centurion`, calculés
 sur cette seule partie, jamais persistés. Plus de `game_id`, `xp_gained`,
@@ -90,3 +109,43 @@ Le front peut afficher un score provisoire mais la vérité vient de la réponse
 - `GET /admin/questions?status=pending` → liste.
 - `POST /admin/questions/:id/approve` / `POST /admin/questions/:id/reject`.
 401 si secret absent/incorrect.
+
+### Import en masse (Lot 6)
+
+Template générique unique (mêmes colonnes que `POST /questions`) : `text_fr`,
+`text_en?`, `duration`, `unit`, `category_slug`, `category_name_fr?`,
+`category_name_en?`. 3 formats supportés (détectés par extension du fichier
+uploadé) : CSV, xlsx, Markdown (tableau pipe-delimited). Une ligne commençant
+par `#` (colonne `text_fr`) est ignorée par le parseur — sert à documenter une
+ligne d'exemple dans le template téléchargé.
+
+#### `GET /admin/questions/import/template?format=csv|xlsx|md`
+Télécharge un template vide (en-têtes + 1 ligne d'exemple commentée). Défaut
+`csv`. Réponse : fichier binaire/texte avec `Content-Disposition: attachment`.
+
+#### `POST /admin/questions/import` (multipart, champ `file`)
+Parse le fichier en streaming, valide **ligne à ligne** (mêmes invariants que
+`POST /questions` : `text_fr` requis, `duration` > 0, `unit` valide,
+`category_slug` requis, noms fr/en requis si la catégorie n'existe pas encore).
+Une ligne invalide ne bloque pas les autres. Les catégories manquantes sont
+créées à la volée (mêmes règles que `POST /questions` : `threshold_seconds`
+initialisé à la durée de la première question qui la crée). Chaque ligne
+valide est insérée en statut `pending` (repasse par la modération existante).
+
+Limites anti-DoS : 5 Mo max par fichier (`@fastify/multipart`, `app.ts`), 1
+seul fichier par requête. 413 `file_too_large` si dépassée, 400
+`unsupported_format` si l'extension n'est ni `.csv`, `.xlsx`, `.md`/`.markdown`.
+
+Réponse 201 :
+```
+{
+  total: number,     // lignes du fichier (hors en-tête / lignes commentées)
+  imported: number,  // lignes valides insérées en pending
+  rejected: [{ line: number, errors: [code, ...] }]  // 1-based
+}
+```
+Codes d'erreur par ligne : `text_fr_required`, `duration_invalid`,
+`invalid_unit`, `category_slug_required`, `unknown_category_needs_names`.
+
+Chaque import est tracé dans `import_batches` (fichier, format, compteurs,
+date) — table de journalisation, pas de contenu de fichier stocké.

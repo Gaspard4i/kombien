@@ -52,19 +52,30 @@ export interface DuelResult {
   errorB: number;
 }
 
+// GAME_DESIGN_V2.md §1.3 — Duel à N joueurs : seul le groupe de tête (le ou les joueurs au
+// plus petit écart absolu) marque des points. Le groupe de tête se partage un pool fixe de
+// 2 points, arrondi à l'entier inférieur : floor(2 / k) où k = nombre de joueurs ex-æquo au
+// meilleur écart. Tous les autres joueurs (hors du groupe de tête) marquent 0. Se réduit
+// exactement au barème v1 pour 2 joueurs (k=1 -> 2/0, k=2 -> 1/1 en cas d'égalité) : aucune
+// régression pour les parties Duo existantes.
+export function scoreDuelRanked(estimates: DuelEstimate[], durationSeconds: number): number[] {
+  const errors = estimates.map((e) => Math.abs(toSeconds(e.value, e.unit) - durationSeconds));
+  const bestError = Math.min(...errors);
+  const leadCount = errors.filter((e) => e === bestError).length;
+  const leadPoints = Math.floor(2 / leadCount);
+
+  return errors.map((error) => (error === bestError ? leadPoints : 0));
+}
+
 // §5 — le plus proche marque 2, égalité stricte d'écart = 1-1. Comparaison directe (pas d'epsilon).
+// Cas particulier de scoreDuelRanked à 2 joueurs (aucune régression).
 export function scoreDuel(
   estA: DuelEstimate,
   estB: DuelEstimate,
   durationSeconds: number,
 ): DuelResult {
+  const [pointsA, pointsB] = scoreDuelRanked([estA, estB], durationSeconds);
   const errorA = Math.abs(toSeconds(estA.value, estA.unit) - durationSeconds);
   const errorB = Math.abs(toSeconds(estB.value, estB.unit) - durationSeconds);
-  if (errorA < errorB) {
-    return { pointsA: 2, pointsB: 0, errorA, errorB };
-  }
-  if (errorB < errorA) {
-    return { pointsA: 0, pointsB: 2, errorA, errorB };
-  }
-  return { pointsA: 1, pointsB: 1, errorA, errorB };
+  return { pointsA: pointsA!, pointsB: pointsB!, errorA, errorB };
 }

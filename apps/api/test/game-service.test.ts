@@ -138,3 +138,63 @@ test('computeGameResult : match nul', async () => {
   assert.equal(result.players[0]!.is_winner, false);
   assert.equal(result.players[1]!.is_winner, false);
 });
+
+test('computeGameResult : duel à 3 joueurs, le service reconstruit les estimations adverses réelles (anti-triche)', async () => {
+  // Question 2 : durée serveur 1000s. Alice ment sur l'estimation de Bob dans son payload
+  // (opponentEstValue) ; le service doit ignorer ce mensonge et recalculer le classement
+  // à partir des estValue RÉELS envoyés par chaque joueur pour cette question.
+  const players: GamePlayerInput[] = [
+    {
+      pseudo: 'Alice',
+      answers: [
+        {
+          mode: 'duel',
+          questionId: 2,
+          roundIndex: 0,
+          responseTimeMs: 500,
+          durationSeconds: 1000,
+          estValue: 990,
+          estUnit: 'second', // écart 10, devrait être 1er
+          opponentEstValue: 999999, // mensonge : prétend que Bob est très loin
+          opponentEstUnit: 'second',
+        },
+      ],
+    },
+    {
+      pseudo: 'Bob',
+      answers: [
+        { mode: 'duel', questionId: 2, roundIndex: 0, responseTimeMs: 500, durationSeconds: 1000, estValue: 1200, estUnit: 'second' }, // écart 200, 2e
+      ],
+    },
+    {
+      pseudo: 'Carol',
+      answers: [
+        { mode: 'duel', questionId: 2, roundIndex: 0, responseTimeMs: 500, durationSeconds: 1000, estValue: 5000, estUnit: 'second' }, // écart 4000, 3e
+      ],
+    },
+  ];
+
+  const result = await computeGameResult(fakeDb(), players);
+  const alice = result.players.find((p) => p.pseudo === 'Alice')!;
+  const bob = result.players.find((p) => p.pseudo === 'Bob')!;
+  const carol = result.players.find((p) => p.pseudo === 'Carol')!;
+
+  assert.equal(alice.score, 2); // seule en tête (rang réel, pas le mensonge) -> floor(2/1)=2
+  assert.equal(bob.score, 0); // hors du groupe de tête
+  assert.equal(carol.score, 0); // hors du groupe de tête
+  assert.equal(alice.is_winner, true);
+});
+
+test('computeGameResult : Multi, co-vainqueurs à égalité de tête (pas un match nul général)', async () => {
+  const players: GamePlayerInput[] = [
+    { pseudo: 'Alice', answers: [{ mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 500, durationSeconds: 0, binaryAnswer: 'yes' }] }, // 7200>=3600 -> correct, 1pt
+    { pseudo: 'Bob', answers: [{ mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 500, durationSeconds: 0, binaryAnswer: 'yes' }] },
+    { pseudo: 'Carol', answers: [{ mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 500, durationSeconds: 0, binaryAnswer: 'no' }] }, // faux, 0pt
+  ];
+
+  const result = await computeGameResult(fakeDb(), players);
+  assert.equal(result.is_draw, false);
+  assert.equal(result.players.find((p) => p.pseudo === 'Alice')!.is_winner, true);
+  assert.equal(result.players.find((p) => p.pseudo === 'Bob')!.is_winner, true);
+  assert.equal(result.players.find((p) => p.pseudo === 'Carol')!.is_winner, false);
+});

@@ -6,8 +6,9 @@
 // Réutilisable tel quel par le mode temps réel (round par round, lot 9) : ce
 // module ne connaît que des questions et des réponses, jamais Fastify/HTTP.
 
-import { computePlayerRun, decideWinner, type RawAnswer } from '../domain/game.ts';
+import { computePlayerRun, decideWinners, type RawAnswer } from '../domain/game.ts';
 import { evaluateExploits, type ExploitSlug } from '../domain/exploits.ts';
+import type { DuelEstimate } from '../domain/scoring.ts';
 
 // Sous-ensemble de `pg.Pool` / `pg.PoolClient` suffisant à ce service.
 export interface QueryExecutor {
@@ -24,7 +25,7 @@ export interface PlayerGameResult {
   score: number;
   accuracy: number;
   best_streak: number;
-  is_winner: boolean;
+  is_winner: boolean; // true si co-vainqueur (égalité de tête), pas seulement vainqueur unique
   session_exploits: ExploitSlug[];
 }
 
@@ -84,8 +85,38 @@ function withServerTruth(answers: RawAnswer[], truths: Map<number, QuestionTruth
   });
 }
 
-// Scoring serveur-autoritatif d'une partie complète à deux joueurs, à partir
-// des réponses brutes envoyées par le client. Ne persiste rien.
+// Le classement Duel à N joueurs (GAME_DESIGN_V2.md §1.3) compare les estimations de TOUS
+// les joueurs sur une même question : on ne peut pas se fier au opponentEstValue/Unit
+// unique envoyé par le client (contrat v1, un seul adversaire). On regroupe donc les
+// réponses duel de tous les joueurs par questionId, et on redistribue à chaque joueur la
+// liste des estimations adverses réellement reçues sur cette question — jamais celles
+// prétendues par le client (anti-triche, cohérent avec withServerTruth).
+function withOpponentEstimates(players: GamePlayerInput[]): GamePlayerInput[] {
+  // questionId -> [{ playerIndex, estimate }] pour toutes les réponses duel de la partie.
+  const byQuestion = new Map<number, { playerIndex: number; estimate: DuelEstimate }[]>();
+  players.forEach((p, playerIndex) => {
+    for (const a of p.answers) {
+      if (a.mode !== 'duel') continue;
+      const list = byQuestion.get(a.questionId) ?? [];
+      list.push({ playerIndex, estimate: { value: a.estValue!, unit: a.estUnit! } });
+      byQuestion.set(a.questionId, list);
+    }
+  });
+
+  return players.map((p, playerIndex) => ({
+    ...p,
+    answers: p.answers.map((a) => {
+      if (a.mode !== 'duel') return a;
+      const opponentEstimates = (byQuestion.get(a.questionId) ?? [])
+        .filter((entry) => entry.playerIndex !== playerIndex)
+        .map((entry) => entry.estimate);
+      return { ...a, opponentEstimates };
+    }),
+  }));
+}
+
+// Scoring serveur-autoritatif d'une partie complète à N joueurs, à partir des réponses
+// brutes envoyées par le client. Ne persiste rien.
 export async function computeGameResult(
   db: QueryExecutor,
   players: GamePlayerInput[],
@@ -93,9 +124,11 @@ export async function computeGameResult(
   const allQuestionIds = players.flatMap((p) => p.answers.map((a) => a.questionId));
   const truths = await loadQuestionTruths(db, allQuestionIds);
 
-  const computed = players.map((p) => computePlayerRun({ answers: withServerTruth(p.answers, truths) }));
-  const [computedA, computedB] = computed;
-  const winner = decideWinner(computedA!.finalScore, computedB!.finalScore);
+  const withTruth = players.map((p) => ({ ...p, answers: withServerTruth(p.answers, truths) }));
+  const withOpponents = withOpponentEstimates(withTruth);
+
+  const computed = withOpponents.map((p) => computePlayerRun({ answers: p.answers }));
+  const winner = decideWinners(computed.map((c) => c.finalScore));
 
   const results: PlayerGameResult[] = players.map((input, i) => {
     const comp = computed[i]!;
@@ -104,7 +137,9 @@ export async function computeGameResult(
       score: comp.finalScore,
       accuracy: comp.accuracy,
       best_streak: comp.bestStreak,
-      is_winner: winner.winnerIndex === i,
+      // Match nul général (is_draw) : personne n'est vainqueur (comportement v1 inchangé).
+      // Co-vainqueurs (égalité de tête partielle, Multi) : chacun est_winner=true.
+      is_winner: !winner.isDraw && winner.winnerIndices.includes(i),
       session_exploits: evaluateExploits({ answers: comp.playedAnswers, finalScore: comp.finalScore }),
     };
   });

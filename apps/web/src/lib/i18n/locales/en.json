@@ -43,10 +43,11 @@
   },
   "setup": {
     "title": "New game",
-    "player_a_label": "Player A nickname",
-    "player_b_label": "Player B nickname",
-    "player_a_placeholder": "Player A's nickname",
-    "player_b_placeholder": "Player B's nickname",
+    "players_title": "Players",
+    "player_label": "Player {{number}} nickname",
+    "player_placeholder": "Player {{number}}'s nickname",
+    "add_player": "Add a player",
+    "remove_player": "Remove this player",
     "mode_title": "Choose a mode",
     "category_title": "Choose a category",
     "category_loading": "Loading categories…",
@@ -59,8 +60,10 @@
     "target_score_title": "Target score",
     "start": "Start game",
     "errors": {
-      "pseudo_required": "Enter a nickname for both players.",
-      "pseudo_same": "Both players need different nicknames.",
+      "pseudo_required": "Enter a nickname for every player.",
+      "pseudo_same": "Every player needs a different nickname.",
+      "min_players": "At least 2 players are needed.",
+      "max_players": "Maximum {{max}} players.",
       "mode_required": "Choose a game mode.",
       "category_required": "Choose a category."
     }
@@ -113,6 +116,7 @@
   "end": {
     "title": "Game over",
     "winner": "{{pseudo}} wins the game",
+    "co_winners": "{{pseudos}} are tied for the lead",
     "draw": "Draw",
     "final_score": "Final score",
     "accuracy": "Accuracy",
@@ -181,7 +185,64 @@
     "loading": "Loading…",
     "approve": "Approve",
     "reject": "Reject",
-    "action_error": "Action failed. Try again."
+    "action_error": "Action failed. Try again.",
+    "import_link": "Import questions",
+    "bulk_create_link": "Create a theme in bulk"
+  },
+  "import": {
+    "title": "Question import",
+    "intro": "Upload a CSV, Excel (xlsx) or Markdown file following the provided template. Each row becomes a question pending moderation.",
+    "template_title": "Template to download",
+    "template_csv": "CSV template",
+    "template_xlsx": "Excel template",
+    "template_md": "Markdown template",
+    "template_error": "Could not download the template.",
+    "file_label": "File to import",
+    "file_placeholder": "Choose a file…",
+    "submit": "Import",
+    "submitting": "Importing…",
+    "summary": "{{imported}} question(s) imported out of {{total}}, {{rejected}} rejected.",
+    "rejected_title": "Rejected rows",
+    "line_label": "Line {{line}}",
+    "errors": {
+      "file_required": "Choose a file to import.",
+      "unsupported_format": "Unsupported file format. Use .csv, .xlsx or .md.",
+      "file_too_large": "This file exceeds the maximum allowed size.",
+      "text_fr_required": "Missing French question.",
+      "duration_invalid": "Invalid duration (must be a number greater than zero).",
+      "invalid_unit": "Invalid unit.",
+      "category_slug_required": "Missing category slug.",
+      "unknown_category_needs_names": "Unknown category: fr/en names are required to create it.",
+      "generic": "Something went wrong during the import."
+    }
+  },
+  "bulk_create": {
+    "title": "Bulk creation",
+    "intro": "Create a theme and several questions at once. Your draft is saved automatically.",
+    "draft_found_title": "A draft was found",
+    "draft_found_body": "You have an unfinished bulk creation, saved automatically.",
+    "draft_resume": "Resume draft",
+    "draft_discard": "Start over",
+    "category_title": "Theme",
+    "category_mode_existing": "Existing category",
+    "category_mode_new": "New category",
+    "questions_title": "Questions",
+    "question_number": "Question {{number}}",
+    "add_question": "Add a question",
+    "remove_question": "Remove this question",
+    "submit": "Create the questions",
+    "submitting": "Sending…",
+    "success": "{{count}} question(s) sent to moderation.",
+    "create_more": "Create another batch",
+    "saved_indicator": "Draft saved",
+    "errors": {
+      "category_required": "Choose or create a theme.",
+      "category_names_required": "Enter the theme's French and English names.",
+      "text_fr_required": "Every question needs French text.",
+      "duration_required": "Every question needs a duration greater than zero.",
+      "min_one_question": "Add at least one question.",
+      "generic": "Something went wrong while sending."
+    }
   },
   "errors": {
     "network_error": "Could not reach the server. Check your connection and try again.",

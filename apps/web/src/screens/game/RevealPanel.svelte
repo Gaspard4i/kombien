@@ -19,7 +19,7 @@
     questionId: number;
     lang: 'fr' | 'en';
     durationSeconds: number;
-    players: [PlayerReveal, PlayerReveal];
+    players: PlayerReveal[];
     isLastQuestionOfRound: boolean;
     onnext: () => void;
   }

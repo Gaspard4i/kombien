@@ -9,7 +9,9 @@ export type Route =
   | { name: 'game' }
   | { name: 'end' }
   | { name: 'contribute' }
-  | { name: 'admin' };
+  | { name: 'admin' }
+  | { name: 'admin-import'; adminSecret: string }
+  | { name: 'admin-bulk-create'; adminSecret: string };
 
 function initialRoute(): Route {
   return window.location.pathname === '/admin' ? { name: 'admin' } : { name: 'home' };
@@ -27,3 +29,6 @@ export function navigate(route: Route): void {
   window.history.replaceState({}, '', path);
   window.scrollTo(0, 0);
 }
+
+// Les écrans d'import/création en lot ne changent pas l'URL affichée (pas de
+// deep-link public) : mêmes règles que /admin (pas de lien depuis home).

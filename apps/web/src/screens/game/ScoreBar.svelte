@@ -8,8 +8,8 @@
   import Icon from '../../lib/components/Icon.svelte';
 
   interface Props {
-    players: [PlayerSlot, PlayerSlot];
-    activeIndex: 0 | 1 | null;
+    players: PlayerSlot[];
+    activeIndex: number | null;
   }
 
   const { players, activeIndex }: Props = $props();
@@ -44,10 +44,15 @@
   .score-bar {
     display: flex;
     gap: var(--gap-tight);
+    /* 4+ joueurs : le contenu défile horizontalement, jamais le body (mobile-first). */
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
 
   .score-bar__player {
-    flex: 1;
+    flex: 1 0 auto;
+    min-width: 5.5rem;
+    max-width: 9rem;
     display: flex;
     flex-direction: column;
     gap: 0.375rem;

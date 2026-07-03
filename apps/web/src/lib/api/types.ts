@@ -71,7 +71,7 @@ export interface SubmitGameInput {
   end_condition?: 'points' | 'manual';
   target_score?: number;
   rounds_played?: number;
-  players: [SubmitGamePlayer, SubmitGamePlayer];
+  players: SubmitGamePlayer[]; // 2..N joueurs (GAME_DESIGN_V2.md §1.3)
 }
 
 export interface SubmitGamePlayerResult {
@@ -85,5 +85,5 @@ export interface SubmitGamePlayerResult {
 
 export interface SubmitGameResult {
   is_draw: boolean;
-  players: [SubmitGamePlayerResult, SubmitGamePlayerResult];
+  players: SubmitGamePlayerResult[];
 }

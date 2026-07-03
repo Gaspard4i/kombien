@@ -43,10 +43,11 @@
   },
   "setup": {
     "title": "Nouvelle partie",
-    "player_a_label": "Pseudo joueur A",
-    "player_b_label": "Pseudo joueur B",
-    "player_a_placeholder": "Pseudo du joueur A",
-    "player_b_placeholder": "Pseudo du joueur B",
+    "players_title": "Joueurs",
+    "player_label": "Pseudo joueur {{number}}",
+    "player_placeholder": "Pseudo du joueur {{number}}",
+    "add_player": "Ajouter un joueur",
+    "remove_player": "Retirer ce joueur",
     "mode_title": "Choisis le mode",
     "category_title": "Choisis la catégorie",
     "category_loading": "Chargement des catégories…",
@@ -59,8 +60,10 @@
     "target_score_title": "Cible de points",
     "start": "Commencer la partie",
     "errors": {
-      "pseudo_required": "Renseigne un pseudo pour les deux joueurs.",
-      "pseudo_same": "Les deux joueurs doivent avoir des pseudos différents.",
+      "pseudo_required": "Renseigne un pseudo pour chaque joueur.",
+      "pseudo_same": "Chaque joueur doit avoir un pseudo différent.",
+      "min_players": "Il faut au moins 2 joueurs.",
+      "max_players": "Maximum {{max}} joueurs.",
       "mode_required": "Choisis un mode de jeu.",
       "category_required": "Choisis une catégorie."
     }
@@ -113,6 +116,7 @@
   "end": {
     "title": "Fin de partie",
     "winner": "{{pseudo}} remporte la partie",
+    "co_winners": "{{pseudos}} sont à égalité en tête",
     "draw": "Match nul",
     "final_score": "Score final",
     "accuracy": "Précision",
@@ -181,7 +185,64 @@
     "loading": "Chargement…",
     "approve": "Approuver",
     "reject": "Rejeter",
-    "action_error": "Action impossible pour le moment."
+    "action_error": "Action impossible pour le moment.",
+    "import_link": "Importer des questions",
+    "bulk_create_link": "Créer un thème en lot"
+  },
+  "import": {
+    "title": "Import de questions",
+    "intro": "Importe un fichier CSV, Excel (xlsx) ou Markdown suivant le modèle fourni. Chaque ligne devient une question en attente de modération.",
+    "template_title": "Modèle à télécharger",
+    "template_csv": "Modèle CSV",
+    "template_xlsx": "Modèle Excel",
+    "template_md": "Modèle Markdown",
+    "template_error": "Impossible de télécharger le modèle.",
+    "file_label": "Fichier à importer",
+    "file_placeholder": "Choisir un fichier…",
+    "submit": "Importer",
+    "submitting": "Import en cours…",
+    "summary": "{{imported}} question(s) importée(s) sur {{total}}, {{rejected}} rejetée(s).",
+    "rejected_title": "Lignes rejetées",
+    "line_label": "Ligne {{line}}",
+    "errors": {
+      "file_required": "Choisis un fichier à importer.",
+      "unsupported_format": "Format de fichier non supporté. Utilise un .csv, .xlsx ou .md.",
+      "file_too_large": "Ce fichier dépasse la taille maximale autorisée.",
+      "text_fr_required": "Question en français manquante.",
+      "duration_invalid": "Durée invalide (doit être un nombre supérieur à zéro).",
+      "invalid_unit": "Unité invalide.",
+      "category_slug_required": "Identifiant de catégorie manquant.",
+      "unknown_category_needs_names": "Catégorie inconnue : les noms fr/en sont requis pour la créer.",
+      "generic": "Une erreur est survenue pendant l'import."
+    }
+  },
+  "bulk_create": {
+    "title": "Création en lot",
+    "intro": "Crée un thème et plusieurs questions d'un coup. Ton brouillon est sauvegardé automatiquement.",
+    "draft_found_title": "Un brouillon a été trouvé",
+    "draft_found_body": "Tu as une création en lot non terminée, sauvegardée automatiquement.",
+    "draft_resume": "Reprendre le brouillon",
+    "draft_discard": "Repartir de zéro",
+    "category_title": "Thème",
+    "category_mode_existing": "Catégorie existante",
+    "category_mode_new": "Nouvelle catégorie",
+    "questions_title": "Questions",
+    "question_number": "Question {{number}}",
+    "add_question": "Ajouter une question",
+    "remove_question": "Retirer cette question",
+    "submit": "Créer les questions",
+    "submitting": "Envoi en cours…",
+    "success": "{{count}} question(s) envoyée(s) en modération.",
+    "create_more": "Créer un autre lot",
+    "saved_indicator": "Brouillon sauvegardé",
+    "errors": {
+      "category_required": "Choisis ou crée un thème.",
+      "category_names_required": "Indique le nom du thème en français et en anglais.",
+      "text_fr_required": "Chaque question doit avoir un texte en français.",
+      "duration_required": "Chaque question doit avoir une durée supérieure à zéro.",
+      "min_one_question": "Ajoute au moins une question.",
+      "generic": "Une erreur est survenue à l'envoi."
+    }
   },
   "errors": {
     "network_error": "Impossible de contacter le serveur. Vérifie ta connexion et réessaie.",

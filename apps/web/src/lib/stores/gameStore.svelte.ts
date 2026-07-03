@@ -22,9 +22,9 @@ export interface GameConfig {
 
 export interface GameState {
   config: GameConfig | null;
-  players: [PlayerSlot, PlayerSlot] | null;
+  players: PlayerSlot[] | null;
   roundNumber: number;
-  chooserIndex: 0 | 1;
+  chooserIndex: number;
   questions: Question[];
   questionIndex: number;
 }
@@ -46,9 +46,9 @@ export function getGameState(): GameState {
   return state;
 }
 
-export function startGame(config: GameConfig, pseudoA: string, pseudoB: string): void {
+export function startGame(config: GameConfig, pseudos: string[]): void {
   state.config = config;
-  state.players = [emptyPlayer(pseudoA), emptyPlayer(pseudoB)];
+  state.players = pseudos.map(emptyPlayer);
   state.roundNumber = 1;
   state.chooserIndex = 0;
   state.questions = [];
@@ -64,8 +64,12 @@ export function currentQuestion(): Question | null {
   return state.questions[state.questionIndex] ?? null;
 }
 
+export function playerCount(): number {
+  return state.players?.length ?? 0;
+}
+
 /** Applique le résultat d'une réponse (points de base déjà calculés) à un joueur. */
-export function recordAnswer(playerIndex: 0 | 1, answer: RawAnswer, basePoints: number, isGoodAnswer: boolean): void {
+export function recordAnswer(playerIndex: number, answer: RawAnswer, basePoints: number, isGoodAnswer: boolean): void {
   const player = state.players?.[playerIndex];
   if (!player) return;
 
@@ -85,10 +89,14 @@ export function advanceQuestion(): boolean {
   return false;
 }
 
-/** Chooser croisé, alternance stricte par parité de manche (GAME_DESIGN.md §9.2). */
+/**
+ * Chooser en rotation circulaire (GAME_DESIGN_V2.md §1.3) : le joueur i choisit la
+ * catégorie du joueur i+1 mod N. Se réduit à l'alternance stricte v1 pour N=2.
+ */
 export function advanceRound(): void {
   state.roundNumber += 1;
-  state.chooserIndex = state.chooserIndex === 0 ? 1 : 0;
+  const n = state.players?.length ?? 1;
+  state.chooserIndex = (state.chooserIndex + 1) % n;
   state.questions = [];
   state.questionIndex = 0;
 }
