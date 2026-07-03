@@ -64,7 +64,7 @@
   <div class="overlay__panel" bind:this={panelEl} role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
     <header class="overlay__header">
       <h2 id="leaderboard-title" class="overlay__title">{t('leaderboard.in_progress_title')}</h2>
-      <Button variant="ghost" onclick={onclose}>
+      <Button variant="ghost" ariaLabel={t('leaderboard.close')} onclick={onclose}>
         <Icon name="x" size="md" />
       </Button>
     </header>

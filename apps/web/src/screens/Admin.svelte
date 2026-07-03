@@ -125,7 +125,7 @@
 
     <div class="admin__toolbar">
       <h2 class="admin__pending-title">{t('admin.pending_title')}</h2>
-      <Button variant="ghost" onclick={reload}>
+      <Button variant="ghost" ariaLabel={t('admin.refresh')} onclick={reload}>
         <Icon name="arrows-clockwise" size="md" />
       </Button>
     </div>

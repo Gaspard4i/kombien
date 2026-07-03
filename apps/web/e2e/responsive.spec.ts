@@ -39,7 +39,7 @@ for (const viewport of VIEWPORTS) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const pseudoA = uniquePseudo(`resA${viewport.name}`);
     const pseudoB = uniquePseudo(`resB${viewport.name}`);
-    await setupGame(page, { mode: 'ordre_de_grandeur', pseudoA, pseudoB, endCondition: 'manual' });
+    await setupGame(page, { mode: 'ordre_de_grandeur', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
 
     await assertNoHorizontalOverflow(page);
 

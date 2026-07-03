@@ -33,7 +33,8 @@ export async function fetchCategoryWithQuestions(
   return { category: best.category, questions: best.questions };
 }
 
-/** Pseudos uniques par test pour éviter les collisions de profils en base entre specs. */
+/** Pseudos uniques par test pour éviter les collisions entre specs qui tournent dans le
+ * même navigateur (localStorage brouillon bulk-create, notamment). */
 export function uniquePseudo(prefix: string): string {
   return `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
 }
@@ -44,11 +45,12 @@ export async function goHome(page: Page): Promise<void> {
 
 interface SetupOptions {
   mode: 'binaire' | 'ordre_de_grandeur' | 'duel';
-  pseudoA: string;
-  pseudoB: string;
+  /** Pseudos des joueurs, dans l'ordre (2 à 8, cf GAME_DESIGN_V2.md §1.3). */
+  pseudos: string[];
   targetScore?: 30 | 50 | 100;
   endCondition?: 'points' | 'manual';
-  /** Nom affiché de la catégorie à sélectionner (name_fr). Sinon la 1re de la grille. */
+  /** Nom affiché de la catégorie à sélectionner (name_fr). Sinon la 1re de la grille.
+   * Seulement pertinent en mode de thème 'rotation' (défaut du Setup). */
   categoryNameFr?: string;
 }
 
@@ -58,13 +60,20 @@ const MODE_LABEL: Record<SetupOptions['mode'], string> = {
   duel: 'Duel',
 };
 
-/** Remplit l'écran Setup et lance la partie (jusqu'à l'écran de jeu, manche 1). */
+/** Remplit l'écran Setup (mode rotation par défaut, N pseudos) et lance la partie
+ * (jusqu'à l'écran de jeu — calibration si Binaire, sinon manche 1 direct). */
 export async function setupGame(page: Page, options: SetupOptions): Promise<void> {
   await goHome(page);
   await page.getByRole('button', { name: 'Jouer' }).click();
 
-  await page.getByLabel('Pseudo joueur A').fill(options.pseudoA);
-  await page.getByLabel('Pseudo joueur B').fill(options.pseudoB);
+  // 2 champs pseudo présents par défaut ; on ajoute les slots manquants pour N > 2.
+  for (let i = 2; i < options.pseudos.length; i++) {
+    await page.getByRole('button', { name: 'Ajouter un joueur' }).click();
+  }
+
+  for (let i = 0; i < options.pseudos.length; i++) {
+    await page.getByLabel(`Pseudo joueur ${i + 1}`).fill(options.pseudos[i]!);
+  }
 
   await page.getByRole('button', { name: MODE_LABEL[options.mode], exact: false }).first().click();
 
@@ -91,6 +100,22 @@ export async function passTransition(page: Page, pseudo: string): Promise<void> 
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Passe la phase de calibration (Lot 4 v2) pour tous les joueurs : répond "OUI" aux
+ * `answersYes` premières questions de calibration, "NON" aux suivantes, pour chacun.
+ * À appeler juste après setupGame() en mode Binaire, avant la 1ère manche. */
+export async function passCalibration(page: Page, pseudos: string[], questionCount = 5): Promise<void> {
+  await page.getByRole('button', { name: 'Commencer la calibration' }).click();
+  for (const pseudo of pseudos) {
+    await passTransition(page, pseudo);
+    for (let i = 0; i < questionCount; i++) {
+      // Réponse arbitraire cohérente (repli sur le seuil de catégorie si incohérent, cf
+      // GAME_DESIGN_V2.md §3.4) : le contenu précis importe peu pour les tests de flow,
+      // seul compte que la phase se termine et débouche sur la 1ère manche.
+      await page.getByRole('button', { name: 'OUI, LONGTEMPS' }).click();
+    }
+  }
 }
 
 /** Répond une question en mode Binaire pour le joueur courant (transition -> réponse -> reveal si dernier). */

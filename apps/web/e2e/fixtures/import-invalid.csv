@@ -1,0 +1,6 @@
+text_fr,text_en,duration,unit,category_slug,category_name_fr,category_name_en
+,Missing french text,15,minute,cuisine,,
+Durée invalide,Invalid duration,-5,minute,cuisine,,
+Unité invalide,Invalid unit,15,parsec,cuisine,,
+Catégorie inconnue sans noms,Unknown category without names,15,minute,categorie-inexistante-e2e,,
+Ligne valide au milieu du lot,Valid row in the middle,20,minute,cuisine,,

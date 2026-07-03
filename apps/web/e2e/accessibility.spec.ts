@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { setupGame, answerOrdre, uniquePseudo } from './helpers';
+import { setupGame, answerOrdre, passCalibration, uniquePseudo } from './helpers';
 
 test('accessibilité : prefers-reduced-motion fait tomber le SplitFlap en cross-fade', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
 
   const pseudoA = uniquePseudo('a11yA');
   const pseudoB = uniquePseudo('a11yB');
-  await setupGame(page, { mode: 'ordre_de_grandeur', pseudoA, pseudoB, endCondition: 'manual' });
+  await setupGame(page, { mode: 'ordre_de_grandeur', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
 
   await page.getByRole('button', { name: new RegExp('JE SUIS PRÊT') }).click();
   await page.locator('.ordre__unit').first().click();
@@ -15,7 +15,9 @@ test('accessibilité : prefers-reduced-motion fait tomber le SplitFlap en cross-
   await expect(page.getByText('Durée réelle')).toBeVisible();
   // Le SplitFlap reste posé (role=status, aria-live) même en reduced-motion : l'info visible
   // via le contenu accessible (span sr-only) doit rester présente sans dépendre du mouvement.
-  const splitFlap = page.locator('.split-flap');
+  // ScoreBar contient elle aussi des SplitFlap (scores des 2 joueurs) : on cible précisément
+  // le grand split-flap de révélation (size="mega", unique sur cet écran).
+  const splitFlap = page.locator('.split-flap--mega');
   await expect(splitFlap).toHaveAttribute('role', 'status');
   await expect(splitFlap).toHaveAttribute('aria-live', 'polite');
 });
@@ -23,7 +25,8 @@ test('accessibilité : prefers-reduced-motion fait tomber le SplitFlap en cross-
 test('accessibilité : navigation clavier sur l\'écran de réponse Binaire', async ({ page }) => {
   const pseudoA = uniquePseudo('kbdA');
   const pseudoB = uniquePseudo('kbdB');
-  await setupGame(page, { mode: 'binaire', pseudoA, pseudoB, endCondition: 'manual' });
+  await setupGame(page, { mode: 'binaire', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
+  await passCalibration(page, [pseudoA, pseudoB]);
 
   await page.getByRole('button', { name: new RegExp('JE SUIS PRÊT') }).click();
   await page.getByRole('button', { name: 'OUI, LONGTEMPS' }).focus();

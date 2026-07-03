@@ -10,6 +10,9 @@
     fullWidth?: boolean;
     onclick?: (event: MouseEvent) => void;
     children: Snippet;
+    // Nécessaire quand le bouton ne contient qu'une Icon (aria-hidden, DESIGN_SYSTEM.md §4) :
+    // sans texte visible, le bouton n'aurait sinon aucun nom accessible (WCAG 4.1.2).
+    ariaLabel?: string;
   }
 
   const {
@@ -19,6 +22,7 @@
     fullWidth = false,
     onclick,
     children,
+    ariaLabel,
   }: Props = $props();
 </script>
 
@@ -27,6 +31,7 @@
   {disabled}
   class="btn btn--{variant}"
   class:btn--full={fullWidth}
+  aria-label={ariaLabel}
   {onclick}
 >
   {@render children()}

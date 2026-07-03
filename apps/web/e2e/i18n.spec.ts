@@ -10,7 +10,9 @@ test('i18n : bascule fr -> en -> fr, aucune chaîne en dur, persistance au reloa
   await expect(page.getByText(/\bhome\.\w+\b/)).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Langue' }).click();
-  await expect(page.getByRole('button', { name: 'View leaderboard' })).toBeVisible();
+  // Pas de leaderboard global en v2 (GAME_DESIGN_V2.md §0.1) : seul "Suggest a question"
+  // reste sur l'accueil, avec "Play".
+  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Suggest a question' })).toBeVisible();
 
   // Persistance après reload.
@@ -28,9 +30,12 @@ test('i18n : setup + jeu affichés entièrement en anglais quand la langue EN es
 
   await page.getByRole('button', { name: 'Play' }).click();
   await expect(page.getByText('New game')).toBeVisible();
-  await expect(page.getByLabel('Player A nickname')).toBeVisible();
+  await expect(page.getByLabel('Player 1 nickname')).toBeVisible();
+  await expect(page.getByLabel('Player 2 nickname')).toBeVisible();
   await expect(page.getByText('Choose a mode')).toBeVisible();
   await expect(page.getByText('Binary')).toBeVisible();
   await expect(page.getByText('Magnitude')).toBeVisible();
   await expect(page.getByText('Duel')).toBeVisible();
+  // Sélection de thèmes (Lot 2 v2) traduite intégralement en anglais.
+  await expect(page.getByText('Theme selection')).toBeVisible();
 });

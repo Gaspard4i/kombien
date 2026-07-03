@@ -30,18 +30,6 @@ test('état d\'erreur : panne réseau sur /categories affiche un message explici
   await expect(page.getByText('Impossible de contacter le serveur')).toBeVisible();
 });
 
-test('état vide : classement sans joueur affiche un texte explicite avec proposition d\'action', async ({ page }) => {
-  await page.route('**/leaderboard*', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-  );
-
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Voir le classement' }).click();
-
-  await expect(page.getByText('Aucun joueur classé pour le moment')).toBeVisible();
-  await expect(page.getByText('Sois le premier à jouer')).toBeVisible();
-});
-
 test('état vide : liste de questions admin en attente vide affiche un message dédié', async ({ page }) => {
   const ADMIN_SECRET = process.env.E2E_ADMIN_SECRET;
   test.skip(!ADMIN_SECRET, 'E2E_ADMIN_SECRET non fourni.');

@@ -325,6 +325,13 @@
   // consommé par End.svelte) ; un arrêt en 1ère manche incomplète annule la partie entière.
   function handleStopGame(): void {
     if (!window.confirm(t('common.end_game_confirm'))) return;
+    // markRoundComplete() n'est normalement appelé que par handleNext() (clic "Manche
+    // suivante") : si l'arrêt survient au reveal de la DERNIÈRE question d'une manche (tous
+    // les joueurs ont déjà répondu, mais le joueur clique "Terminer" avant "Manche suivante"),
+    // la manche est déjà complète en pratique et ne doit pas être jetée à tort.
+    if (step.name === 'reveal' && isLastQuestionOfRound) {
+      markRoundComplete();
+    }
     if (isFirstRoundIncomplete()) {
       resetGame();
       navigate({ name: 'home', cancelledGame: true });

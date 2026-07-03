@@ -228,6 +228,7 @@
     "unlock_error": "Mot de passe incorrect.",
     "pending_title": "Questions en attente",
     "pending_empty": "Aucune question en attente.",
+    "refresh": "Rafraîchir la liste",
     "loading": "Chargement…",
     "approve": "Approuver",
     "reject": "Rejeter",

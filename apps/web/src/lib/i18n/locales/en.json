@@ -228,6 +228,7 @@
     "unlock_error": "Incorrect password.",
     "pending_title": "Pending questions",
     "pending_empty": "No pending questions.",
+    "refresh": "Refresh list",
     "loading": "Loading…",
     "approve": "Approve",
     "reject": "Reject",

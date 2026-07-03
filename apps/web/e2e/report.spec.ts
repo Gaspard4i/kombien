@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { setupGame, answerBinaire, uniquePseudo } from './helpers';
+import { setupGame, passCalibration, answerBinaire, uniquePseudo } from './helpers';
 
 test('signalement : reporter une question depuis l\'écran de révélation confirme l\'enregistrement', async ({ page }) => {
   const pseudoA = uniquePseudo('repA');
   const pseudoB = uniquePseudo('repB');
 
-  await setupGame(page, { mode: 'binaire', pseudoA, pseudoB, endCondition: 'manual' });
+  await setupGame(page, { mode: 'binaire', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
+  await passCalibration(page, [pseudoA, pseudoB]);
   await answerBinaire(page, pseudoA, 'yes');
   await answerBinaire(page, pseudoB, 'no');
 

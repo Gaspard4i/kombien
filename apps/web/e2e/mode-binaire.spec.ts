@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupGame, answerBinaire, goNext, uniquePseudo } from './helpers';
+import { setupGame, passCalibration, answerBinaire, goNext, uniquePseudo } from './helpers';
 
 /** Fait avancer l'écran de transition croisée (chooser) + le choix de catégorie. */
 async function passCategoryTransitionAndPick(page: import('@playwright/test').Page): Promise<void> {
@@ -8,11 +8,15 @@ async function passCategoryTransitionAndPick(page: import('@playwright/test').Pa
   await page.getByRole('button', { name: 'Valider la catégorie' }).click();
 }
 
-test('mode Binaire : partie complète setup -> manches -> révélation -> fin, scores corrects', async ({ page }) => {
+test('mode Binaire : partie complète setup -> calibration -> manches -> révélation -> fin, scores corrects', async ({ page }) => {
   const pseudoA = uniquePseudo('binA');
   const pseudoB = uniquePseudo('binB');
 
-  await setupGame(page, { mode: 'binaire', pseudoA, pseudoB, targetScore: 30 });
+  await setupGame(page, { mode: 'binaire', pseudos: [pseudoA, pseudoB], targetScore: 30 });
+
+  // Calibration obligatoire avant la 1ère manche en mode Binaire (Lot 4 v2, §3).
+  await expect(page.getByRole('heading', { name: 'Calibration' })).toBeVisible();
+  await passCalibration(page, [pseudoA, pseudoB]);
 
   // Manche 1, 5 questions : chaque joueur répond, révélation, jusqu'à la fin de manche.
   for (let i = 0; i < 5; i++) {
@@ -30,11 +34,17 @@ test('mode Binaire : partie complète setup -> manches -> révélation -> fin, s
   await expect(page.getByText(/Manche 2/)).toBeVisible();
 });
 
-test('mode Binaire : partie jusqu\'au bout (arrêt manuel), écran de fin affiche scores serveur', async ({ page }) => {
+test('mode Binaire : partie jusqu\'au bout (arrêt manuel), écran de fin affiche scores serveur + exploits de session', async ({ page }) => {
   const pseudoA = uniquePseudo('binManA');
   const pseudoB = uniquePseudo('binManB');
 
-  await setupGame(page, { mode: 'binaire', pseudoA, pseudoB, endCondition: 'manual' });
+  // "Terminer la partie" déclenche un window.confirm() (Game.svelte::handleStopGame) : sans
+  // listener, Playwright le DISMISS par défaut (annule), pas accept -> il faut l'accepter
+  // explicitement pour que la navigation vers /end ait bien lieu.
+  page.on('dialog', (dialog) => dialog.accept());
+
+  await setupGame(page, { mode: 'binaire', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
+  await passCalibration(page, [pseudoA, pseudoB]);
 
   for (let i = 0; i < 5; i++) {
     await answerBinaire(page, pseudoA, 'yes');
@@ -52,11 +62,13 @@ test('mode Binaire : partie jusqu\'au bout (arrêt manuel), écran de fin affich
   await expect(page.getByText('Durée réelle')).toBeVisible();
   await page.getByRole('button', { name: 'Terminer la partie' }).click();
 
-  await expect(page.getByText('Calcul des scores en cours')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /remporte la partie|Match nul/ })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('heading', { name: /remporte la partie|Match nul|sont à égalité en tête/ })).toBeVisible({ timeout: 10000 });
 
   // Les stats affichées viennent de la réponse serveur (End.svelte n'affiche qu'après result).
+  // v2 : plus d'XP/badges cumulés — remplacés par "Exploits de la partie" (session_exploits).
   await expect(page.getByText('Score final').first()).toBeVisible();
-  await expect(page.getByText('XP gagnée').first()).toBeVisible();
-  await expect(page.getByText('Nouveaux badges').first()).toBeVisible();
+  await expect(page.getByText('Précision').first()).toBeVisible();
+  await expect(page.getByText('Exploits de la partie').first()).toBeVisible();
+  await expect(page.getByText('XP gagnée')).toHaveCount(0);
+  await expect(page.getByText('Nouveaux badges')).toHaveCount(0);
 });

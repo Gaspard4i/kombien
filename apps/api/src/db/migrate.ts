@@ -50,7 +50,13 @@ async function applyMigration(pool: Pool, name: string, sql: string): Promise<vo
 }
 
 async function seedIfEmpty(pool: Pool): Promise<boolean> {
-  const { rows } = await pool.query<{ count: string }>('SELECT count(*)::int AS count FROM categories');
+  // Exclut la catégorie is_calibration (seedée par 0005_calibration.sql) du test
+  // de vacuité : sinon, sur une DB neuve, cette migration remplit `categories`
+  // avant même que ce test ne s'exécute et fait croire à tort que le jeu de
+  // données principal est déjà présent (seed jamais appliqué).
+  const { rows } = await pool.query<{ count: string }>(
+    "SELECT count(*)::int AS count FROM categories WHERE is_calibration = false"
+  );
   const isEmpty = rows[0]?.count === undefined ? true : Number(rows[0].count) === 0;
   if (!isEmpty) return false;
   const seedSql = await readFile(SEED_FILE, 'utf8');
