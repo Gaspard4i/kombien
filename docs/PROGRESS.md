@@ -46,6 +46,12 @@ Aucun secret en clair (code/config/docs), jamais push .env, secrets prod génér
 - [ ] README complet
 
 ## Journal
+- 2026-07-03 (v2) : v2 deployee en prod. Tout ephemere (plus d'XP/badges/leaderboard global),
+  N-joueurs 2-8, 5 modes de selection de themes, questions differenciees, calibration binaire,
+  fin assouplie, classement de session, import de masse (CSV/xlsx/md), split-flap etendu a tous
+  les ecrans. Lots 0-8 (le lot 9 multi-ecrans temps reel Redis+WS reste a faire). QA e2e 49/49,
+  133 tests API. Migrations 0003 (drop persistance) / 0004 (import_batches) / 0005 (calibration).
+  https://kombien.gazai.fr en v2, contrat v2 confirme (session_exploits, /leaderboard supprime).
 - 2026-07-03 : Frontend complet (3 modes, i18n, split-flap) + infra Docker/Traefik + CI. QA e2e 32/32, 6 bugs bloquants corrigés. Poussé sur main. **Déployé en prod gazai** : https://kombien.gazai.fr + https://kombien-api.gazai.fr (TLS OK, healthy). Secrets générés serveur.
 - 2026-07-02 : Phase 0 close. Infra gazai inspectée (Traefik v3, rootless, pattern dads-race). Nom = Kombien. Repo structuré, git init, CLAUDE.md + docs créés.
 
