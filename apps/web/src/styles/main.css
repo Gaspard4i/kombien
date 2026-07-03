@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+@import './fonts.css';
+@import './tokens.css';
+
+html {
+  /* Thème sombre unique, assumé (DESIGN_SYSTEM.md §2.3) */
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--board);
+  color: var(--ink-hi);
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Chasse fixe pour toute donnée chiffrée : les colonnes de chiffres ne sautent pas. */
+.font-mono,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 0.125rem solid var(--amber);
+  outline-offset: 0.125rem;
+}
