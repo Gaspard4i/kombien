@@ -8,8 +8,8 @@
   import { onMount } from 'svelte';
   import { t, getLang } from '../../lib/i18n';
   import { navigate } from '../../lib/router/router.svelte';
-  import { getCategories, getCategoryQuestions, ApiError } from '../../lib/api/client';
-  import type { Category, RawAnswer } from '../../lib/api/types';
+  import { getCategories, getCategoryQuestions, getQuestionsForCategories, ApiError } from '../../lib/api/client';
+  import type { Category, Question, RawAnswer } from '../../lib/api/types';
   import { toSeconds, type Unit } from '../../lib/domain/units';
   import { scoreBinaire, scoreOrdreDeGrandeur, scoreDuelRanked, type RoundOutcome } from '../../lib/domain/scoring';
   import {
@@ -20,6 +20,7 @@
     advanceQuestion,
     advanceRound,
     isEndConditionMet,
+    activeCategorySlugs,
   } from '../../lib/stores/gameStore.svelte';
   import AppShell from '../../lib/components/AppShell.svelte';
   import Card from '../../lib/components/Card.svelte';
@@ -45,6 +46,11 @@
 
   const game = getGameState();
 
+  // Slugs actifs déterminés par le mode de sélection de thème (GAME_DESIGN_V2.md §2.6) :
+  // non-null pour global/vote/multi/per_player (pool fixe, pas de CategoryPick manche
+  // après manche) ; null pour rotation (croisement v1, catégorie choisie à chaque manche).
+  const fixedActiveSlugs = activeCategorySlugs(game.config!.themeSelection);
+
   let step = $state<Step>({ name: 'loading-questions' });
   let allCategories = $state<Category[]>([]);
   let currentCategory = $state<Category>(game.config!.category);
@@ -59,14 +65,31 @@
   let answerStartedAt = 0;
 
   onMount(async () => {
-    // Manche 1 : la catégorie est déjà choisie via Setup, pas de category-pick.
-    await loadRoundQuestions(currentCategory);
+    // Pool de catégories connu à l'avance pour tout mode hors rotation (résolution du
+    // tag/seuil par question via category_id, cf categoryForQuestion ci-dessous).
+    if (fixedActiveSlugs) {
+      allCategories = await getCategories();
+    }
+    // Manche 1 : la catégorie (ou le pool) est déjà choisie via Setup, pas de category-pick.
+    await loadRoundQuestions();
   });
 
-  async function loadRoundQuestions(category: Category): Promise<void> {
+  // Résout la catégorie réelle d'une question par son category_id (nécessaire en mode
+  // multi/per_player où plusieurs catégories sont actives simultanément dans une même
+  // manche) ; retombe sur currentCategory si non trouvée (mode rotation/global/vote,
+  // une seule catégorie active, toujours currentCategory).
+  function categoryForQuestion(question: Question): Category {
+    return allCategories.find((c) => c.id === question.category_id) ?? currentCategory;
+  }
+
+  // Tirage de la manche (GAME_DESIGN_V2.md §2.6) : catégorie unique (rotation/global/
+  // vote, ancien endpoint) ou union de catégories (multi/per_player, nouvel endpoint).
+  async function loadRoundQuestions(): Promise<void> {
     step = { name: 'loading-questions' };
     try {
-      const questions = await getCategoryQuestions(category.slug, game.config!.questionsPerRound);
+      const questions = fixedActiveSlugs
+        ? await getQuestionsForCategories(fixedActiveSlugs, game.config!.questionsPerRound)
+        : await getCategoryQuestions(currentCategory.slug, game.config!.questionsPerRound);
       setRoundQuestions(questions);
       beginQuestion();
     } catch (err) {
@@ -123,8 +146,11 @@
 
   function handleBinaireAnswer(playerIndex: number, answer: 'yes' | 'no'): void {
     const q = currentQuestion()!;
-    const raw = buildRawAnswer({ binaryAnswer: answer, thresholdSeconds: currentCategory.threshold_seconds });
-    const outcome = scoreBinaire(answer, q.duration_seconds, currentCategory.threshold_seconds);
+    // categoryForQuestion : en mode multi/per_player, chaque question de la manche peut
+    // venir d'une catégorie différente, donc d'un seuil différent (GAME_DESIGN_V2.md §2.3-2.4).
+    const threshold = categoryForQuestion(q).threshold_seconds;
+    const raw = buildRawAnswer({ binaryAnswer: answer, thresholdSeconds: threshold });
+    const outcome = scoreBinaire(answer, q.duration_seconds, threshold);
     commitAnswer(playerIndex, raw, outcome);
   }
 
@@ -191,12 +217,21 @@
     }
 
     advanceRound();
-    if (allCategories.length === 0) {
-      // On a la catégorie initiale (Setup) mais il faut la liste complète pour le choix
-      // croisé de la manche 2+ -> chargée une seule fois, en différé.
-      allCategories = await getCategories();
+
+    // Mode rotation uniquement : la catégorie est choisie manche après manche via
+    // CategoryPick (GAME_DESIGN_V2.md §2.5). Les autres modes ont un pool fixe résolu
+    // au setup (fixedActiveSlugs) -> pas de category-pick, on retire directement.
+    if (!fixedActiveSlugs) {
+      if (allCategories.length === 0) {
+        // On a la catégorie initiale (Setup) mais il faut la liste complète pour le choix
+        // croisé de la manche 2+ -> chargée une seule fois, en différé.
+        allCategories = await getCategories();
+      }
+      step = { name: 'category-transition' };
+      return;
     }
-    step = { name: 'category-transition' };
+
+    await loadRoundQuestions();
   }
 
   function handleCategoryTransitionReady(): void {
@@ -205,7 +240,7 @@
 
   async function handleCategoryConfirm(category: Category): Promise<void> {
     currentCategory = category;
-    await loadRoundQuestions(category);
+    await loadRoundQuestions();
   }
 
   function handleQuitGame(): void {
@@ -276,10 +311,11 @@
       />
     {:else if step.name === 'answer' && question}
       {@const answerPlayerIndex = step.playerIndex}
+      {@const questionCategory = categoryForQuestion(question)}
       <Card>
         <div class="game__question-head">
           <span class="game__tag">{t(`modes.${game.config!.mode}`)}</span>
-          <span class="game__tag">{getLang() === 'en' ? currentCategory.name_en : currentCategory.name_fr}</span>
+          <span class="game__tag">{getLang() === 'en' ? questionCategory.name_en : questionCategory.name_fr}</span>
         </div>
         <p class="game__question-text">
           {getLang() === 'en' ? question.text_en : question.text_fr}

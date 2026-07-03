@@ -49,7 +49,7 @@
     "add_player": "Ajouter un joueur",
     "remove_player": "Retirer ce joueur",
     "mode_title": "Choisis le mode",
-    "category_title": "Choisis la catégorie",
+    "category_title": "Catégorie de la 1ère manche",
     "category_loading": "Chargement des catégories…",
     "category_empty": "Aucune catégorie disponible pour le moment.",
     "end_condition_title": "Condition de fin",
@@ -79,6 +79,35 @@
   "category_pick": {
     "title": "{{chooser}} choisit la catégorie pour {{answerer}}",
     "confirm": "Valider la catégorie"
+  },
+  "theme_select": {
+    "title": "Sélection des thèmes",
+    "mode_rotation": "Croisement",
+    "mode_rotation_desc": "Chaque joueur choisit la catégorie du suivant, à chaque manche.",
+    "mode_global": "Thème unique",
+    "mode_global_desc": "Un seul thème choisi pour toute la partie.",
+    "mode_vote": "Vote",
+    "mode_vote_desc": "Chaque joueur vote un thème ; le plus voté s'applique à toute la partie.",
+    "mode_multi": "Multi-thèmes",
+    "mode_multi_desc": "Plusieurs thèmes actifs, les questions se mélangent entre eux.",
+    "mode_per_player": "Thème par joueur",
+    "mode_per_player_desc": "Chaque joueur choisit son ou ses propres thèmes.",
+    "single_select_title": "Choisis le thème",
+    "multi_select_title": "Choisis un ou plusieurs thèmes",
+    "multi_select_hint": "Sélectionne au moins un thème.",
+    "per_player_hint": "Chaque joueur choisit son ou ses thèmes.",
+    "per_player_title": "Thèmes de {{pseudo}}",
+    "vote_intro": "Chaque joueur vote à son tour, sans voir le choix des autres.",
+    "vote_prompt": "{{pseudo}}, pour quel thème votes-tu ?",
+    "vote_confirm": "Valider mon vote",
+    "vote_done": "Vote enregistré",
+    "vote_result_tie": "Égalité : {{category}} tiré au sort parmi les thèmes à égalité.",
+    "vote_result": "Thème retenu : {{category}}",
+    "errors": {
+      "category_required": "Choisis un thème.",
+      "multi_min_one": "Choisis au moins un thème.",
+      "per_player_min_one": "Chaque joueur doit choisir au moins un thème."
+    }
   },
   "round": {
     "label": "Manche {{number}}",

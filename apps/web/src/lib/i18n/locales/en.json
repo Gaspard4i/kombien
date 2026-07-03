@@ -49,7 +49,7 @@
     "add_player": "Add a player",
     "remove_player": "Remove this player",
     "mode_title": "Choose a mode",
-    "category_title": "Choose a category",
+    "category_title": "First round's category",
     "category_loading": "Loading categories…",
     "category_empty": "No category available right now.",
     "end_condition_title": "End condition",
@@ -79,6 +79,35 @@
   "category_pick": {
     "title": "{{chooser}} picks the category for {{answerer}}",
     "confirm": "Confirm category"
+  },
+  "theme_select": {
+    "title": "Theme selection",
+    "mode_rotation": "Crossover",
+    "mode_rotation_desc": "Each player picks the next player's category, every round.",
+    "mode_global": "Single theme",
+    "mode_global_desc": "One theme chosen for the whole game.",
+    "mode_vote": "Vote",
+    "mode_vote_desc": "Each player votes for a theme; the most voted one applies to the whole game.",
+    "mode_multi": "Multi-theme",
+    "mode_multi_desc": "Several themes active, questions mix between them.",
+    "mode_per_player": "Theme per player",
+    "mode_per_player_desc": "Each player picks their own theme(s).",
+    "single_select_title": "Choose the theme",
+    "multi_select_title": "Choose one or more themes",
+    "multi_select_hint": "Select at least one theme.",
+    "per_player_hint": "Each player picks their own theme(s).",
+    "per_player_title": "{{pseudo}}'s themes",
+    "vote_intro": "Each player votes in turn, without seeing the others' choices.",
+    "vote_prompt": "{{pseudo}}, which theme do you vote for?",
+    "vote_confirm": "Confirm my vote",
+    "vote_done": "Vote recorded",
+    "vote_result_tie": "Tie: {{category}} drawn at random among the tied themes.",
+    "vote_result": "Theme selected: {{category}}",
+    "errors": {
+      "category_required": "Choose a theme.",
+      "multi_min_one": "Choose at least one theme.",
+      "per_player_min_one": "Every player must choose at least one theme."
+    }
   },
   "round": {
     "label": "Round {{number}}",

@@ -13,6 +13,15 @@ Contrat REST réel exposé par `apps/api` (Fastify). Base : `/api` derrière ngi
 ### `GET /categories/:slug/questions?count=5`
 `[{ id, category_id, text_fr, text_en, duration_seconds }]` — aléatoires, status approved. 404 `category_not_found` si slug inconnu. count 1..50 (défaut 5).
 
+### `GET /questions?categories=slug1,slug2&count=5`
+Tirage multi-catégories (Lot 2 v2, GAME_DESIGN_V2.md §2.3-2.4) : mêmes règles que
+ci-dessus, mais dans l'**union** des questions approuvées de tous les slugs donnés
+(mélange aléatoire du pool fusionné). Utilisé par les modes de sélection de thème
+"multi-thèmes" et "par joueur" ; les modes croisement/global/vote continuent
+d'utiliser `/categories/:slug/questions` (une seule catégorie active à la fois).
+`categories` requis, slugs séparés par des virgules, dédoublonnés côté serveur.
+404 `category_not_found` si au moins un slug est inconnu. count 1..50 (défaut 5).
+
 v2 : plus de persistance de profil/partie (GAME_DESIGN_V2.md §0) — `GET /leaderboard`
 et `GET /players/:pseudo` sont **supprimés**. Le seul classement qui existe est
 celui de la session de jeu en cours, dérivé côté client à partir de la réponse

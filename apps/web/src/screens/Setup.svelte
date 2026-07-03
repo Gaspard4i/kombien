@@ -9,13 +9,14 @@
   import { ApiError } from '../lib/api/client';
   import type { Category } from '../lib/api/types';
   import type { GameMode } from '../lib/domain/scoring';
-  import { startGame, type EndCondition } from '../lib/stores/gameStore.svelte';
+  import { startGame, type EndCondition, type ThemeSelection } from '../lib/stores/gameStore.svelte';
   import AppShell from '../lib/components/AppShell.svelte';
   import Card from '../lib/components/Card.svelte';
   import Button from '../lib/components/Button.svelte';
   import Skeleton from '../lib/components/Skeleton.svelte';
   import ErrorMessage from '../lib/components/ErrorMessage.svelte';
   import Icon from '../lib/components/Icon.svelte';
+  import ThemeSelect from '../lib/components/ThemeSelect.svelte';
 
   const MODES: GameMode[] = ['binaire', 'ordre_de_grandeur', 'duel'];
   const TARGET_SCORE_OPTIONS = [30, 50, 100];
@@ -27,6 +28,7 @@
   let mode = $state<GameMode | null>(null);
   let categories = $state<Category[]>([]);
   let selectedCategorySlug = $state<string | null>(null);
+  let themeSelection = $state<ThemeSelection>({ mode: 'rotation' });
   let endCondition = $state<EndCondition>('points');
   let targetScore = $state(50);
   let loadingCategories = $state(true);
@@ -53,6 +55,24 @@
     pseudos.splice(index, 1);
   }
 
+  function validateThemeSelection(): string | null {
+    switch (themeSelection.mode) {
+      case 'rotation':
+        return selectedCategorySlug ? null : t('setup.errors.category_required');
+      case 'global':
+      case 'vote':
+        return themeSelection.fixedCategory ? null : t('theme_select.errors.category_required');
+      case 'multi':
+        return (themeSelection.multiCategories?.length ?? 0) > 0
+          ? null
+          : t('theme_select.errors.multi_min_one');
+      case 'per_player':
+        return pseudos.every((_, i) => (themeSelection.perPlayerCategories?.[i]?.length ?? 0) > 0)
+          ? null
+          : t('theme_select.errors.per_player_min_one');
+    }
+  }
+
   function validate(): string | null {
     const trimmed = pseudos.map((p) => p.trim());
     if (trimmed.length < MIN_PLAYERS) return t('setup.errors.min_players');
@@ -60,19 +80,25 @@
     const lowered = trimmed.map((p) => p.toLowerCase());
     if (new Set(lowered).size !== lowered.length) return t('setup.errors.pseudo_same');
     if (!mode) return t('setup.errors.mode_required');
-    if (!selectedCategorySlug) return t('setup.errors.category_required');
-    return null;
+    return validateThemeSelection();
   }
 
   function handleStart(): void {
     formError = validate();
     if (formError) return;
 
-    const category = categories.find((c) => c.slug === selectedCategorySlug)!;
+    // Manche 1 : n'a de sens qu'en mode rotation (les autres modes tirent leur pool
+    // depuis themeSelection, jamais de ce champ ponctuel — cf gameStore.GameConfig).
+    const category =
+      themeSelection.mode === 'rotation'
+        ? categories.find((c) => c.slug === selectedCategorySlug)!
+        : (themeSelection.fixedCategory ?? themeSelection.multiCategories?.[0] ?? categories[0]!);
+
     startGame(
       {
         mode: mode!,
         category,
+        themeSelection,
         endCondition,
         targetScore,
         questionsPerRound: QUESTIONS_PER_ROUND,
@@ -147,26 +173,37 @@
   </section>
 
   <section class="setup__section">
-    <h2 class="setup__section-title">{t('setup.category_title')}</h2>
     {#if loadingCategories}
+      <h2 class="setup__section-title">{t('setup.category_title')}</h2>
       <Skeleton rows={3} />
     {:else if loadError}
+      <h2 class="setup__section-title">{t('setup.category_title')}</h2>
       <ErrorMessage message={loadError} />
     {:else if categories.length === 0}
+      <h2 class="setup__section-title">{t('setup.category_title')}</h2>
       <p class="setup__empty">{t('setup.category_empty')}</p>
     {:else}
-      <div class="setup__category-grid">
-        {#each categories as category (category.id)}
-          <button
-            type="button"
-            class="setup__category"
-            class:setup__category--selected={selectedCategorySlug === category.slug}
-            onclick={() => (selectedCategorySlug = category.slug)}
-          >
-            {getLang() === 'en' ? category.name_en : category.name_fr}
-          </button>
-        {/each}
-      </div>
+      {#if themeSelection.mode === 'rotation'}
+        <h2 class="setup__section-title">{t('setup.category_title')}</h2>
+        <div class="setup__category-grid">
+          {#each categories as category (category.id)}
+            <button
+              type="button"
+              class="setup__category"
+              class:setup__category--selected={selectedCategorySlug === category.slug}
+              onclick={() => (selectedCategorySlug = category.slug)}
+            >
+              {getLang() === 'en' ? category.name_en : category.name_fr}
+            </button>
+          {/each}
+        </div>
+      {/if}
+      <ThemeSelect
+        {categories}
+        pseudos={pseudos.map((p) => p.trim())}
+        selection={themeSelection}
+        onchange={(next) => (themeSelection = next)}
+      />
     {/if}
   </section>
 

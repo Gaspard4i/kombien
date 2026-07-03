@@ -67,6 +67,14 @@ export function getCategoryQuestions(slug: string, count = 5): Promise<Question[
   return request(`/categories/${encodeURIComponent(slug)}/questions?count=${count}`);
 }
 
+// Tirage multi-catégories (Lot 2 v2, GAME_DESIGN_V2.md §2.3-2.4) : union des
+// questions approuvées de plusieurs catégories. Utilisé par les modes de
+// sélection de thème "multi-thèmes" et "par joueur".
+export function getQuestionsForCategories(slugs: string[], count = 5): Promise<Question[]> {
+  const categories = slugs.map(encodeURIComponent).join(',');
+  return request(`/questions?categories=${categories}&count=${count}`);
+}
+
 export function createQuestion(input: CreateQuestionInput): Promise<CreateQuestionResult> {
   return request('/questions', { method: 'POST', body: JSON.stringify(input) });
 }
