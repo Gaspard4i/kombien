@@ -139,8 +139,8 @@ export async function answerDuel(page: Page, pseudo: string, value: number, unit
   await page.getByRole('button', { name: 'Valider' }).click();
 }
 
-/** Depuis l'écran de révélation, passe à la question/manche suivante. */
+/** Depuis l'écran de révélation, passe à la manche suivante (v2.1 : une manche = une
+ * question, donc systématiquement "Manche suivante", cf RevealPanel.svelte). */
 export async function goNext(page: Page): Promise<void> {
-  const button = page.getByRole('button', { name: /Question suivante|Manche suivante/ });
-  await button.click();
+  await page.getByRole('button', { name: 'Manche suivante' }).click();
 }

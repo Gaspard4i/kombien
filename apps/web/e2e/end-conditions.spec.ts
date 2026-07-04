@@ -22,12 +22,10 @@ test('fin de partie assouplie : arrêt en cours de manche annule la manche incom
 
   await setupGame(page, { mode: 'ordre_de_grandeur', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
 
-  // Termine la manche 1 complète (5 questions, tous les joueurs répondent à chacune).
-  for (let i = 0; i < 5; i++) {
-    await answerOrdre(page, pseudoA, 'Heure');
-    await answerOrdre(page, pseudoB, 'Jour');
-    await goNext(page);
-  }
+  // Termine la manche 1 complète (v2.1 : une manche = une question, tous les joueurs répondent).
+  await answerOrdre(page, pseudoA, 'Heure');
+  await answerOrdre(page, pseudoB, 'Jour');
+  await goNext(page);
   // Passe la transition croisée + choix de catégorie -> entame la manche 2.
   await page.getByRole('button', { name: new RegExp('JE SUIS PRÊT') }).click();
   await page.locator('.category-pick__option').first().click();

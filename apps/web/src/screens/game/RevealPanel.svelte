@@ -24,11 +24,10 @@
     lang: 'fr' | 'en';
     durationSeconds: number;
     players: PlayerReveal[];
-    isLastQuestionOfRound: boolean;
     onnext: () => void;
   }
 
-  const { questionId, lang, durationSeconds, players, isLastQuestionOfRound, onnext }: Props = $props();
+  const { questionId, lang, durationSeconds, players, onnext }: Props = $props();
 
   // Différencié ssi au moins un joueur porte sa propre durée (sinon tous répondent à la
   // même question -> un seul split-flap géant partagé, comportement v1).
@@ -88,7 +87,7 @@
   </div>
 
   <Button variant="primary" fullWidth onclick={onnext}>
-    {t(isLastQuestionOfRound ? 'reveal.next_round' : 'reveal.next_question')}
+    {t('reveal.next_round')}
   </Button>
 
   <div class="reveal__report">

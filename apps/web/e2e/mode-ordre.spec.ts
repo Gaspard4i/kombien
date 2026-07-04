@@ -7,17 +7,19 @@ test('mode Ordre de grandeur : partie complète à 2 joueurs, choix d\'unité et
 
   await setupGame(page, { mode: 'ordre_de_grandeur', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
 
-  for (let i = 0; i < 5; i++) {
-    await expect(page.getByText(/Manche 1/)).toBeVisible();
-    await answerOrdre(page, pseudoA, 'Heure');
-    await answerOrdre(page, pseudoB, 'Jour');
-    await expect(page.getByText('Durée réelle')).toBeVisible();
-    // Le résultat (bonne/mauvaise réponse) et les points provisoires sont affichés par joueur.
-    await expect(page.locator('.reveal__pseudo', { hasText: pseudoA })).toBeVisible();
-    await expect(page.locator('.reveal__pseudo', { hasText: pseudoB })).toBeVisible();
-    await goNext(page);
-  }
+  // v2.1 : une manche = une question. Chaque joueur répond, révélation, classement mis à
+  // jour immédiatement.
+  await expect(page.getByText(/Manche 1/)).toBeVisible();
+  await answerOrdre(page, pseudoA, 'Heure');
+  await answerOrdre(page, pseudoB, 'Jour');
+  await expect(page.getByText('Durée réelle')).toBeVisible();
+  // Le résultat (bonne/mauvaise réponse) et les points provisoires sont affichés par joueur.
+  await expect(page.locator('.reveal__pseudo', { hasText: pseudoA })).toBeVisible();
+  await expect(page.locator('.reveal__pseudo', { hasText: pseudoB })).toBeVisible();
+  await goNext(page);
 
+  // Rotation du chooser à chaque manche (GAME_DESIGN_V2.md §1.3) : la transition catégorie
+  // suit directement, sans attendre un bloc de plusieurs questions.
   await expect(page.getByText('Tu choisis la catégorie')).toBeVisible();
 });
 

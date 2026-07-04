@@ -170,6 +170,24 @@ test('drawDistinctSetsForPlayers : répartition équitable en dégradation, pas 
   assert.notDeepEqual(idsPlayer1, idsPlayer2);
 });
 
+test('drawDistinctSetsForPlayers : régression — 2 joueurs, pool tout juste insuffisant, le joueur dégradé ne reçoit JAMAIS le set identique au premier', async () => {
+  // Reproduit le bug réel observé en local (catégorie à 9 questions, count=5, 2 joueurs) :
+  // le joueur 0 (non dégradé) consomme pool[0..4], puis le joueur 1 (dégradé) démarrait à
+  // tort son curseur de dégradation à 0 -> repiochait EXACTEMENT pool[0..4], le même
+  // tableau, dans le même ordre. `degradedCursor` doit reprendre où `cursor` s'est arrêté.
+  const db = fakeDb([{ id: 1, slug: 'cuisine' }], pool(9));
+  const sets = await drawDistinctSetsForPlayers(db, ['cuisine'], 5, 2);
+
+  assert.equal(sets.length, 2);
+  const idsPlayer0 = sets[0]!.map((q) => q.id);
+  const idsPlayer1 = sets[1]!.map((q) => q.id);
+  assert.notDeepEqual(idsPlayer0, idsPlayer1);
+  // Le pool (9) ne permet pas une disjonction totale (2*5=10 > 9) : un seul recoupement est
+  // acceptable (règle 2 relâchée en dernier recours), mais jamais un recoupement total.
+  const overlap = idsPlayer0.filter((id) => idsPlayer1.includes(id));
+  assert.ok(overlap.length < idsPlayer0.length, `recoupement total détecté : ${overlap.length}/${idsPlayer0.length}`);
+});
+
 test('drawDistinctSetsForPlayers : slug inconnu -> UnknownCategoriesError (même validation que drawQuestionsForCategories)', async () => {
   const db = fakeDb([{ id: 1, slug: 'sport' }], []);
   await assert.rejects(

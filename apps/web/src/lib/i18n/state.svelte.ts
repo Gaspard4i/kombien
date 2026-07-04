@@ -49,5 +49,7 @@ export function t(key: string, params?: Record<string, string | number>): string
   );
 }
 
-// Applique la langue détectée au <html lang="..."> dès le chargement du module.
-document.documentElement.lang = currentLang;
+// Applique la langue détectée au <html lang="..."> dès le chargement du module. getLang()
+// plutôt que currentLang directement : lire le $state au top-level du module (hors closure)
+// déclenche state_referenced_locally (Svelte docs), même si ici une seule lecture suffit.
+document.documentElement.lang = getLang();

@@ -67,6 +67,10 @@ export interface RawAnswer {
   estUnit?: Unit;
   opponentEstValue?: number;
   opponentEstUnit?: Unit;
+  // Timer de réponse expiré, pass-and-play (v2.1) : ce joueur n'a pas répondu dans le délai.
+  // Duel uniquement (binaire/ordre traitent le timeout comme une réponse "no"/unité arbitraire
+  // directement scorée à 0 côté client, cf Game.svelte::handleAnswerTimeout).
+  noAnswer?: boolean;
 }
 
 export interface SubmitGamePlayer {

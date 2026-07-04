@@ -197,12 +197,12 @@ En mode **Limite de points**, on peut désormais s'arrêter à tout moment (bout
 
 ### 4.2 Équité en cas d'arrêt en cours de manche
 
-**Définition d'une « manche complète »** : une manche est complète quand **tous les joueurs de la partie** ont répondu à **toutes les N questions** de cette manche (comportement v1 §9.3, généralisé à N joueurs).
+**v2.1 — une manche = une question** (révision de la définition ci-dessous ; auparavant une manche regroupait N questions, cf §9). **Définition d'une « manche complète »** : une manche est complète quand **tous les joueurs de la partie** ont répondu à **la question** de cette manche (comportement v1 §9.3, généralisé à N joueurs et à une manche d'une seule question).
 
 **Règle d'arrêt** :
 
-1. Si l'arrêt est demandé alors que la manche en cours est **complète** (tous les joueurs ont fini leurs N questions) : le score final est le score cumulé jusqu'à cette manche incluse. Comportement identique à v1.
-2. Si l'arrêt est demandé **en cours de manche** (au moins un joueur n'a pas fini ses N questions de la manche courante) : **les points de la manche en cours ne comptent pour aucun joueur**, y compris ceux qui avaient déjà fini leurs questions de cette manche et marqué des points. Le score final retenu est celui **à l'issue de la dernière manche complète** (la précédente).
+1. Si l'arrêt est demandé alors que la manche en cours est **complète** (tous les joueurs ont répondu) : le score final est le score cumulé jusqu'à cette manche incluse. Comportement identique à v1.
+2. Si l'arrêt est demandé **en cours de manche** (au moins un joueur n'a pas encore répondu à la question de la manche courante) : **les points de la manche en cours ne comptent pour aucun joueur**, y compris ceux qui avaient déjà répondu et marqué des points. Le score final retenu est celui **à l'issue de la dernière manche complète** (la précédente).
 3. **Streak** : le compteur de streak de chaque joueur est également **restauré à sa valeur de fin de dernière manche complète** — les bonnes réponses de la manche annulée ne comptent ni pour le score ni pour la progression du streak. (Cohérent avec la règle 2 : une manche annulée est traitée comme n'ayant jamais eu lieu.)
 4. Si l'arrêt survient **pendant la toute première manche** (aucune manche complète encore) : score final = 0 partout, la partie est **annulée** plutôt que terminée avec un score nul valorisé (l'écran de fin l'indique explicitement : « Partie interrompue avant la fin de la première manche — aucun résultat » plutôt qu'un écran de victoire/nul standard).
 
@@ -225,9 +225,9 @@ Nouvelle option de setup, orthogonale au mode de sélection de thème (§2) : **
 
 ### 5.2 Tirage équitable
 
-Pour une manche de N questions et P joueurs en mode différencié :
+Pour une manche (v2.1 : une question, cf §4.2) et P joueurs en mode différencié :
 
-- Chaque joueur reçoit **N questions qui lui sont propres**, tirées aléatoirement du pool actif (§2.6), **sans répétition intra-partie pour ce joueur** (même règle de stock que v1, appliquée par joueur plutôt que globalement).
+- Chaque joueur reçoit **sa propre question**, tirée aléatoirement du pool actif (§2.6), **sans répétition intra-partie pour ce joueur** (même règle de stock que v1, appliquée par joueur plutôt que globalement).
 - **Pas de partage de question entre joueurs dans la même manche** : si le pool le permet, on garantit qu'aucune question tirée pour le joueur `i` n'est retirée dans la même manche pour un autre joueur `j` (évite qu'un joueur entende par avance la difficulté ressentie par un autre sur "sa" question — même si en pass-and-play l'écran de transition masque déjà cela, en multi-écrans les joueurs répondent en simultané).
 - **Équité de difficulté de tirage** : le tirage reste **aléatoire uniforme dans le pool commun** pour tous les joueurs (même catégorie/pool, donc même distribution de difficulté en espérance) ; il n'y a pas de contrôle fin de la difficulté individuelle des questions (le pool n'a pas de métadonnée de difficulté en v1/v2 — hors périmètre).
 - Si le pool est trop petit pour garantir l'absence de recoupement entre joueurs (peu de questions disponibles, beaucoup de joueurs), la contrainte « pas de partage inter-joueurs dans la manche » est **relâchée en premier** (avant la règle de non-répétition intra-partie, plus importante pour l'expérience individuelle) : mieux vaut qu'un joueur retombe sur une question déjà vue par un autre plutôt que de rejouer une question qu'il a déjà eue lui-même.
@@ -248,6 +248,17 @@ Le classement par rang (§1.3, généralisation N joueurs) s'applique alors sur 
 **Justification** : un écart absolu de 60 secondes est négligeable sur une durée d'un an mais énorme sur une durée de 2 minutes ; comparer des écarts absolus entre questions différentes favoriserait mécaniquement les joueurs tombés sur de grandes durées. L'écart relatif neutralise cet effet et reste un signe de précision d'estimation équitable indépendamment de la magnitude de la question reçue.
 
 **Cas Duo, questions communes (v1 standard)** : rien ne change, l'écart relatif et l'écart absolu donnent le même classement puisque `duration_seconds` est identique pour les deux joueurs (diviser deux écarts par la même constante ne change pas leur ordre) — **la v1 est un cas particulier de cette formule généralisée**, aucune régression.
+
+---
+
+## 5bis. Timer de réponse en pass-and-play (v2.1)
+
+Contrairement au timer multi-écrans (§6.2, toujours en attente d'implémentation, lot v2.2), ce timer s'applique **dès maintenant** au dispositif pass-and-play actuel (un seul appareil, joueurs qui se le passent).
+
+- **5 secondes par défaut**, configurable au setup (ou désactivé — pas de limite, comportement historique). Volontairement plus court que les 10s prévues pour le multi-écrans (§6.2) : en pass-and-play le joueur tient déjà l'appareil en main au moment où le minuteur démarre (pas de latence de connexion/attention à absorber comme sur un appareil distant).
+- Démarre à l'affichage de la question pour le joueur dont c'est le tour (juste après l'écran de transition « Passe l'appareil à … »), s'arrête à sa réponse ou à expiration.
+- **Non-réponse dans le délai** : traitée exactement comme au §6.2 (même règle, reprise ici pour ne pas diverger entre pass-and-play et multi-écrans) — Binaire/Ordre de grandeur : 0 pt, streak cassé ; Duel : écart considéré comme infini (jamais dans le groupe de tête), sans bloquer le classement des autres joueurs qui ont répondu.
+- Implémentation : composant `AnswerTimer.svelte`, échéance absolue (`Date.now() + totalSeconds * 1000`) plutôt que décompte par soustraction répétée, pour ne pas dériver sous la latence de `setInterval`.
 
 ---
 

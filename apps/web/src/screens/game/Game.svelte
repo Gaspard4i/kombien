@@ -1,10 +1,11 @@
 <script lang="ts">
   // Orchestrateur de la manche (GAME_DESIGN.md §9.2-§9.4, GAME_DESIGN_V2.md §1.3 pour N
-  // joueurs). Machine d'état locale : category-pick (chooser choisit) -> loading (tirage des
-  // questions) -> pour chaque question : transition/answer EN BOUCLE pour chacun des N joueurs
-  // (ou par estimation en duel) -> reveal -> question suivante ou manche suivante. Le score
-  // affiché est provisoire (lib/domain/scoring.ts) ; la vérité vient de POST /games à la fin
-  // de la partie (End.svelte).
+  // joueurs). v2.1 : une manche = UNE question (GAME_DESIGN_V2.md §9, révisé). Machine
+  // d'état locale : category-pick (chooser choisit) -> loading (tirage de LA question) ->
+  // pour chaque joueur, en boucle : transition/answer (timer optionnel) -> reveal (score et
+  // classement mis à jour immédiatement) -> manche suivante (rotation du chooser à chaque
+  // question). Le score affiché est provisoire (lib/domain/scoring.ts) ; la vérité vient de
+  // POST /games à la fin de la partie (End.svelte).
   import { onMount } from 'svelte';
   import { t, getLang } from '../../lib/i18n';
   import { navigate } from '../../lib/router/router.svelte';
@@ -20,13 +21,10 @@
   import { scoreBinaire, scoreOrdreDeGrandeur, scoreDuelRanked, type RoundOutcome } from '../../lib/domain/scoring';
   import {
     getGameState,
-    setRoundQuestions,
-    setPerPlayerRoundQuestions,
+    setRoundQuestion,
     isDifferentiated,
     currentQuestion,
-    roundQuestionCount,
     recordAnswer,
-    advanceQuestion,
     advanceRound,
     markRoundComplete,
     isEndConditionMet,
@@ -41,6 +39,7 @@
   import ErrorMessage from '../../lib/components/ErrorMessage.svelte';
   import Button from '../../lib/components/Button.svelte';
   import Icon from '../../lib/components/Icon.svelte';
+  import AnswerTimer from '../../lib/components/AnswerTimer.svelte';
   import TransitionScreen from './TransitionScreen.svelte';
   import ScoreBar from './ScoreBar.svelte';
   import CategoryPick from './CategoryPick.svelte';
@@ -56,7 +55,7 @@
     | { name: 'calibration' }
     | { name: 'category-transition' }
     | { name: 'category-pick' }
-    | { name: 'loading-questions' }
+    | { name: 'loading-question' }
     | { name: 'load-error'; message: string }
     | { name: 'answer-transition'; playerIndex: number }
     | { name: 'answer'; playerIndex: number }
@@ -73,14 +72,19 @@
   // toute première manche (jamais réévaluée ensuite, cf gameStore.setCalibratedThreshold).
   const needsCalibration = game.config!.mode === 'binaire';
 
-  let step = $state<Step>(needsCalibration ? { name: 'calibration-intro' } : { name: 'loading-questions' });
+  let step = $state<Step>(needsCalibration ? { name: 'calibration-intro' } : { name: 'loading-question' });
   let allCategories = $state<Category[]>([]);
   let currentCategory = $state<Category>(game.config!.category);
 
   // Réponses brutes + résultats provisoires de la question en cours, un par joueur, en
-  // attente de révélation. Index aligné sur game.players.
+  // attente de révélation. Index aligné sur game.players. `null` persistant après le passage
+  // d'un joueur (timer expiré, pas de réponse donnée) reste `null` dans pendingAnswers mais
+  // pendingOutcomes est renseigné (0 pt / mauvaise réponse) — cf handleAnswerTimeout.
   let pendingAnswers = $state<(RawAnswer | null)[]>([]);
   let pendingOutcomes = $state<(RoundOutcome | null)[]>([]);
+  // Estimations Duel en secondes, y compris pour les joueurs dont le timer a expiré (marquées
+  // Infinity : jamais dans le groupe de tête tant qu'au moins un autre joueur a répondu).
+  let pendingDuelEstimateSeconds = $state<(number | null)[]>([]);
 
   // Classement de session en cours de partie (Lot 7 v2, GAME_DESIGN_V2.md §0.1/§6.5) :
   // overlay consultable à tout moment via ScoreBar, se ferme pour revenir au jeu.
@@ -92,17 +96,17 @@
 
   onMount(async () => {
     if (needsCalibration) return; // attend handleCalibrationDone() (voir plus bas)
-    await loadInitialQuestions();
+    await loadInitialQuestion();
   });
 
-  async function loadInitialQuestions(): Promise<void> {
+  async function loadInitialQuestion(): Promise<void> {
     // Pool de catégories connu à l'avance pour tout mode hors rotation (résolution du
     // tag/seuil par question via category_id, cf categoryForQuestion ci-dessous).
     if (fixedActiveSlugs) {
       allCategories = await getCategories();
     }
     // Manche 1 : la catégorie (ou le pool) est déjà choisie via Setup, pas de category-pick.
-    await loadRoundQuestions();
+    await loadRoundQuestion();
   }
 
   function handleCalibrationStart(): void {
@@ -110,7 +114,7 @@
   }
 
   async function handleCalibrationDone(): Promise<void> {
-    await loadInitialQuestions();
+    await loadInitialQuestion();
   }
 
   // Résout la catégorie réelle d'une question par son category_id (nécessaire en mode
@@ -121,27 +125,24 @@
     return allCategories.find((c) => c.id === question.category_id) ?? currentCategory;
   }
 
-  // Tirage de la manche (GAME_DESIGN_V2.md §2.6 et §5.2, Lot 3) : catégorie unique
-  // (rotation/global/vote, ancien endpoint) ou union de catégories (multi/per_player,
-  // endpoint multi-catégories) ; en mode "questions différenciées", le même pool (slugs
-  // résolus ci-dessus) est distribué en sous-ensembles disjoints par joueur plutôt qu'en
-  // un seul jeu de questions partagé.
-  async function loadRoundQuestions(): Promise<void> {
-    step = { name: 'loading-questions' };
+  // Tirage de la manche (v2.1 : UNE question, GAME_DESIGN_V2.md §2.6 et §5.2, Lot 3) :
+  // catégorie unique (rotation/global/vote, ancien endpoint) ou union de catégories
+  // (multi/per_player, endpoint multi-catégories) ; en mode "questions différenciées", le
+  // même pool (slugs résolus ci-dessus) est distribué en une question distincte par joueur
+  // plutôt qu'une seule question partagée.
+  async function loadRoundQuestion(): Promise<void> {
+    step = { name: 'loading-question' };
     const slugs = fixedActiveSlugs ?? [currentCategory.slug];
     try {
       if (game.config!.differentiatedQuestions) {
-        const perPlayerQuestions = await getDistinctQuestionsForPlayers(
-          slugs,
-          game.config!.questionsPerRound,
-          playerCount(),
-        );
-        setPerPlayerRoundQuestions(perPlayerQuestions);
+        const perPlayerQuestions = await getDistinctQuestionsForPlayers(slugs, 1, playerCount());
+        setRoundQuestion(perPlayerQuestions.map((set) => set[0]!));
       } else {
         const questions = fixedActiveSlugs
-          ? await getQuestionsForCategories(fixedActiveSlugs, game.config!.questionsPerRound)
-          : await getCategoryQuestions(currentCategory.slug, game.config!.questionsPerRound);
-        setRoundQuestions(questions);
+          ? await getQuestionsForCategories(fixedActiveSlugs, 1)
+          : await getCategoryQuestions(currentCategory.slug, 1);
+        const question = questions[0]!;
+        setRoundQuestion(game.players!.map(() => question));
       }
       beginQuestion();
     } catch (err) {
@@ -167,6 +168,7 @@
   function beginQuestion(): void {
     pendingAnswers = game.players!.map(() => null);
     pendingOutcomes = game.players!.map(() => null);
+    pendingDuelEstimateSeconds = game.players!.map(() => null);
     step = { name: 'answer-transition', playerIndex: 0 };
   }
 
@@ -228,15 +230,44 @@
   function handleDuelAnswer(playerIndex: number, value: number, unit: Unit): void {
     const raw = buildRawAnswer(playerIndex, { estValue: value, estUnit: unit });
     pendingAnswers[playerIndex] = raw;
+    pendingDuelEstimateSeconds[playerIndex] = toSeconds(value, unit);
+    advanceDuelOrResolve(playerIndex);
+  }
 
+  // Timer expiré (v2.1) : pas de réponse. Binaire/Ordre = mauvaise réponse (0 pt, streak
+  // cassé, cf GAME_DESIGN_V2.md §6.2 — même traitement que la spec multi-écrans, reprise ici
+  // pour le pass-and-play). Duel = écart infini, ne peut jamais entrer dans le groupe de tête.
+  function handleAnswerTimeout(playerIndex: number): void {
+    if (game.config!.mode === 'duel') {
+      // estValue/estUnit factices : jamais lus comme vérité par le serveur dès que noAnswer
+      // est présent (cf domain/scoring.ts::scoreDuelRanked), mais requis par le type RawAnswer.
+      const raw = buildRawAnswer(playerIndex, { estValue: 0, estUnit: 'second', noAnswer: true });
+      pendingAnswers[playerIndex] = raw;
+      pendingDuelEstimateSeconds[playerIndex] = Infinity;
+      advanceDuelOrResolve(playerIndex);
+      return;
+    }
+
+    const q = currentQuestion(playerIndex)!;
+    const raw = buildRawAnswer(
+      playerIndex,
+      game.config!.mode === 'binaire'
+        ? { binaryAnswer: 'no', thresholdSeconds: effectiveThreshold(playerIndex, categoryForQuestion(q).threshold_seconds) }
+        : { chosenUnit: 'second' },
+    );
+    commitAnswer(playerIndex, raw, { points: 0, isGoodAnswer: false });
+  }
+
+  function advanceDuelOrResolve(playerIndex: number): void {
     const nextIndex = playerIndex + 1;
     if (nextIndex < playerCount()) {
       step = { name: 'answer-transition', playerIndex: nextIndex };
       return;
     }
 
-    // Dernier joueur : toutes les estimations sont connues, on calcule le classement.
-    const estimateSeconds = pendingAnswers.map((a) => toSeconds(a!.estValue!, a!.estUnit!));
+    // Dernier joueur : toutes les estimations sont connues (ou Infinity si timer expiré),
+    // on calcule le classement.
+    const estimateSeconds = pendingDuelEstimateSeconds.map((v) => v ?? Infinity);
     const durationsSeconds = pendingAnswers.map((a) => a!.durationSeconds);
     const outcomes = scoreDuelRanked(estimateSeconds, isDifferentiated() ? durationsSeconds : durationsSeconds[0]!);
 
@@ -264,21 +295,17 @@
     return (value, unit) => handleDuelAnswer(playerIndex, value, unit);
   }
 
+  // v2.1 : une manche = une question -> chaque clic "Manche suivante" marque IMMÉDIATEMENT
+  // la manche courante comme complète (score/classement déjà visibles depuis le reveal, cf
+  // ScoreBar/LeaderboardOverlay qui lisent game.players en direct) puis vérifie la fin de
+  // partie et fait tourner le chooser AVANT la question suivante (rotation à chaque question,
+  // GAME_DESIGN_V2.md §1.3).
   async function handleNext(): Promise<void> {
-    const hasMoreQuestions = advanceQuestion();
-    if (hasMoreQuestions) {
-      beginQuestion();
-      return;
-    }
-
-    // Manche PROPREMENT terminée (tous les joueurs ont fini leurs N questions) : marquée
-    // comme "dernière manche complète" AVANT toute décision de fin de partie (Lot 5 v2,
-    // GAME_DESIGN_V2.md §4.2) — sinon une partie qui s'arrête pile ici (cible atteinte)
-    // perdrait à tort les points de cette manche au moment du scoring final (End.svelte).
     markRoundComplete();
 
-    // Fin de manche (GAME_DESIGN.md §9.4) : en mode "points", on vérifie la cible ici.
-    // En mode "manual", pas d'arrêt automatique : le joueur clique "Terminer la partie".
+    // Fin de manche (GAME_DESIGN.md §9.4) : en mode "points", on vérifie la cible ici, après
+    // CHAQUE question désormais (v2.1). En mode "manual", pas d'arrêt automatique : le joueur
+    // clique "Terminer la partie".
     if (game.config!.endCondition === 'points' && isEndConditionMet()) {
       navigate({ name: 'end' });
       return;
@@ -286,9 +313,9 @@
 
     advanceRound();
 
-    // Mode rotation uniquement : la catégorie est choisie manche après manche via
-    // CategoryPick (GAME_DESIGN_V2.md §2.5). Les autres modes ont un pool fixe résolu
-    // au setup (fixedActiveSlugs) -> pas de category-pick, on retire directement.
+    // Mode rotation uniquement : la catégorie est choisie à chaque manche via CategoryPick
+    // (GAME_DESIGN_V2.md §2.5). Les autres modes ont un pool fixe résolu au setup
+    // (fixedActiveSlugs) -> pas de category-pick, on tire directement.
     if (!fixedActiveSlugs) {
       if (allCategories.length === 0) {
         // On a la catégorie initiale (Setup) mais il faut la liste complète pour le choix
@@ -299,7 +326,7 @@
       return;
     }
 
-    await loadRoundQuestions();
+    await loadRoundQuestion();
   }
 
   function handleCategoryTransitionReady(): void {
@@ -308,7 +335,7 @@
 
   async function handleCategoryConfirm(category: Category): Promise<void> {
     currentCategory = category;
-    await loadRoundQuestions();
+    await loadRoundQuestion();
   }
 
   function handleQuitGame(): void {
@@ -319,17 +346,14 @@
 
   // Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4) : "Terminer la partie" est
   // disponible à tout moment, quelle que soit la condition de fin (limite de points ET
-  // arrêt manuel unifiés — avant ce lot, seul le mode manuel l'exposait, et seulement au
-  // reveal). Un arrêt en cours de manche jette la manche incomplète (score ET streak
-  // reviennent à l'état de la dernière manche complète, cf. gameStore.answersUpToLastCompleteRound
-  // consommé par End.svelte) ; un arrêt en 1ère manche incomplète annule la partie entière.
+  // arrêt manuel unifiés). v2.1 : une manche = une question, donc "manche incomplète" au
+  // sens §4.2 = question où tous les joueurs n'ont pas encore répondu — au reveal, tous ont
+  // déjà répondu (sinon on ne serait pas au reveal), donc la manche courante est TOUJOURS
+  // complète à cet instant précis (contrairement à v1 où un reveal pouvait survenir au milieu
+  // d'un bloc de N questions).
   function handleStopGame(): void {
     if (!window.confirm(t('common.end_game_confirm'))) return;
-    // markRoundComplete() n'est normalement appelé que par handleNext() (clic "Manche
-    // suivante") : si l'arrêt survient au reveal de la DERNIÈRE question d'une manche (tous
-    // les joueurs ont déjà répondu, mais le joueur clique "Terminer" avant "Manche suivante"),
-    // la manche est déjà complète en pratique et ne doit pas être jetée à tort.
-    if (step.name === 'reveal' && isLastQuestionOfRound) {
+    if (step.name === 'reveal') {
       markRoundComplete();
     }
     if (isFirstRoundIncomplete()) {
@@ -342,10 +366,9 @@
 
   // En mode différencié, la question affichée à l'écran de réponse est celle du joueur DONT
   // c'est le tour (step.playerIndex) ; en mode commun currentQuestion(0) == currentQuestion(N)
-  // pour tout N (un seul jeu de questions partagé), donc l'index n'a pas d'importance.
+  // pour tout N (une seule question partagée), donc l'index n'a pas d'importance.
   const activeAnswerPlayerIndex = $derived(step.name === 'answer' || step.name === 'answer-transition' ? step.playerIndex : 0);
   const question = $derived(currentQuestion(activeAnswerPlayerIndex));
-  const isLastQuestionOfRound = $derived(game.questionIndex + 1 >= roundQuestionCount());
   const revealPlayers = $derived(
     game.players && pendingOutcomes.every((o) => o !== null)
       ? game.players.map((p, i) => ({
@@ -359,9 +382,10 @@
       : null,
   );
 
-  // Classement de session (Lot 7 v2) : scores/streaks provisoires du gameStore, pas de
-  // précision (accuracy) connue avant la réponse serveur de fin de partie -> colonne
-  // masquée par Leaderboard tant que `accuracy` est absent (variant 'compact').
+  // Classement de session (Lot 7 v2) : scores/streaks provisoires du gameStore, mis à jour
+  // immédiatement après CHAQUE question (v2.1) — pas de précision (accuracy) connue avant la
+  // réponse serveur de fin de partie -> colonne masquée par Leaderboard tant que `accuracy`
+  // est absent (variant 'compact').
   const leaderboardEntries = $derived(
     (game.players ?? []).map((p) => ({ pseudo: p.pseudo, score: p.score, bestStreak: p.bestStreak })),
   );
@@ -416,7 +440,7 @@
       />
     {/if}
 
-    {#if step.name === 'loading-questions'}
+    {#if step.name === 'loading-question'}
       <Skeleton rows={4} />
     {:else if step.name === 'load-error'}
       <ErrorMessage message={step.message} />
@@ -443,6 +467,15 @@
         </p>
       </Card>
 
+      {#if game.config!.answerTimerSeconds !== null}
+        {#key answerPlayerIndex}
+          <AnswerTimer
+            totalSeconds={game.config!.answerTimerSeconds}
+            onexpire={() => handleAnswerTimeout(answerPlayerIndex)}
+          />
+        {/key}
+      {/if}
+
       {#if game.config!.mode === 'binaire'}
         <BinaireAnswer onanswer={(answer) => handleBinaireAnswer(answerPlayerIndex, answer)} />
       {:else if game.config!.mode === 'ordre_de_grandeur'}
@@ -456,7 +489,6 @@
         lang={getLang()}
         durationSeconds={question.duration_seconds}
         players={revealPlayers}
-        {isLastQuestionOfRound}
         onnext={handleNext}
       />
     {/if}

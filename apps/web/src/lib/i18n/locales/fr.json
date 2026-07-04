@@ -62,6 +62,9 @@
     "differentiated_questions": "Questions différenciées",
     "differentiated_questions_desc": "Chaque joueur reçoit ses propres questions, dans le même thème.",
     "differentiated_questions_forced": "Obligatoire : chaque joueur a déjà son propre thème.",
+    "answer_timer_title": "Temps de réponse",
+    "answer_timer_desc": "Passé ce délai, la réponse compte comme non donnée.",
+    "answer_timer_off": "Pas de limite",
     "start": "Commencer la partie",
     "errors": {
       "pseudo_required": "Renseigne un pseudo pour chaque joueur.",
@@ -114,8 +117,12 @@
     }
   },
   "round": {
-    "label": "Manche {{number}}",
-    "question_of": "Question {{current}} / {{total}}"
+    "label": "Manche {{number}}"
+  },
+  "game": {
+    "timer_seconds": "{{seconds}} s",
+    "timer_expired": "Temps écoulé",
+    "answer_missing": "Pas de réponse"
   },
   "calibration": {
     "intro_title": "Calibration",
@@ -143,7 +150,6 @@
     "correct": "Bonne réponse",
     "incorrect": "Mauvaise réponse",
     "points_earned": "+{{points}} pts",
-    "next_question": "Question suivante",
     "next_round": "Manche suivante",
     "streak_up": "Série en cours",
     "streak_broken": "Série brisée"

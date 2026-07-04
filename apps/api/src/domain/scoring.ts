@@ -47,6 +47,12 @@ export interface DuelEstimate {
   // propre question, donc sa propre durée réelle. Absent = durée commune (v1/Duo
   // standard, cf. paramètre `durationSeconds` de scoreDuelRanked).
   durationSeconds?: number;
+  // Timer de réponse expiré, pass-and-play (v2.1, GAME_DESIGN_V2.md §6.2 repris hors
+  // multi-écrans) : ce joueur n'a pas répondu dans le délai. Écart traité comme infini —
+  // ne peut jamais entrer dans le groupe de tête, quelle que soit la valeur de `value`/
+  // `unit` reçue (le client envoie une estimation arbitraire non exploitable, jamais
+  // faisant foi : c'est ce flag, pas la valeur, qui détermine le résultat).
+  noAnswer?: boolean;
 }
 
 export interface DuelResult {
@@ -68,14 +74,15 @@ export interface DuelResult {
 // rigoureusement identiques à l'écart absolu v1. Aucune régression.
 export function scoreDuelRanked(estimates: DuelEstimate[], durationSeconds: number): number[] {
   const errors = estimates.map((e) => {
+    if (e.noAnswer) return Infinity;
     const trueDuration = e.durationSeconds ?? durationSeconds;
     return Math.abs(toSeconds(e.value, e.unit) - trueDuration) / trueDuration;
   });
   const bestError = Math.min(...errors);
   const leadCount = errors.filter((e) => e === bestError).length;
-  const leadPoints = Math.floor(2 / leadCount);
+  const leadPoints = Number.isFinite(bestError) ? Math.floor(2 / leadCount) : 0;
 
-  return errors.map((error) => (error === bestError ? leadPoints : 0));
+  return errors.map((error) => (error === bestError && Number.isFinite(error) ? leadPoints : 0));
 }
 
 // §5 — le plus proche marque 2, égalité stricte d'écart = 1-1. Comparaison directe (pas d'epsilon).

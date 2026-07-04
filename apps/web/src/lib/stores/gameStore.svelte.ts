@@ -43,31 +43,34 @@ export interface GameConfig {
   themeSelection: ThemeSelection;
   endCondition: EndCondition;
   targetScore: number;
-  questionsPerRound: number;
   // Questions différenciées (Lot 3 v2, GAME_DESIGN_V2.md §5.1) : chaque joueur reçoit, à
-  // chaque tour de la manche, une question distincte tirée du même pool, plutôt que la
-  // même question pour tous (défaut v1). Obligatoire (toujours true) en mode 'per_player'
-  // (§2.4 : les pools eux-mêmes diffèrent, donc les questions ne peuvent pas être
-  // communes) ; option cochable indépendamment avec les 3 autres modes de thème.
+  // chaque manche, une question distincte tirée du même pool, plutôt que la même question
+  // pour tous (défaut v1). Obligatoire (toujours true) en mode 'per_player' (§2.4 : les
+  // pools eux-mêmes diffèrent, donc les questions ne peuvent pas être communes) ; option
+  // cochable indépendamment avec les 3 autres modes de thème.
   differentiatedQuestions: boolean;
+  // Timer de réponse pass-and-play (v2.1) : secondes accordées à chaque joueur pour
+  // répondre, `null` = pas de limite (désactivé au setup).
+  answerTimerSeconds: number | null;
 }
 
 export interface GameState {
   config: GameConfig | null;
   players: PlayerSlot[] | null;
+  // v2.1 : une manche = UNE question (plus de bloc de questionsPerRound). roundNumber sert
+  // directement de roundIndex pour le scoring serveur (RawAnswer.roundIndex, domain/game.ts
+  // qui ne connaît déjà pas la notion de "taille" de manche — aucun changement backend requis).
   roundNumber: number;
   chooserIndex: number;
   // Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2) : dernière manche COMPLETE
-  // (tous les joueurs ont fini leurs N questions), mise à jour uniquement par advanceRound().
-  // 0 = aucune manche complète encore (arrêt en 1ère manche -> partie annulée).
+  // (tous les joueurs ont répondu à LA question de cette manche), mise à jour uniquement
+  // par markRoundComplete(). 0 = aucune manche complète encore (arrêt en 1ère manche ->
+  // partie annulée).
   lastCompleteRoundNumber: number;
-  // Questions communes (défaut v1) : un seul jeu de questions partagé par tous les joueurs.
+  // Question de la manche en cours, une par joueur (index aligné sur PlayerSlot[]). En
+  // mode commun (défaut v1), toutes les entrées pointent vers la même Question ; en mode
+  // différencié (§5.1), chaque joueur porte la sienne — cf. currentQuestion().
   questions: Question[];
-  // Questions différenciées (§5.1) : un jeu de questions PAR joueur, index aligné sur
-  // PlayerSlot[]. `questionIndex` reste commun (même tour de manche pour tout le monde),
-  // seule la question réellement affichée diffère — cf. currentQuestionFor().
-  perPlayerQuestions: Question[][] | null;
-  questionIndex: number;
 }
 
 function emptyPlayer(pseudo: string): PlayerSlot {
@@ -81,8 +84,6 @@ let state = $state<GameState>({
   chooserIndex: 0,
   lastCompleteRoundNumber: 0,
   questions: [],
-  perPlayerQuestions: null,
-  questionIndex: 0,
 });
 
 export function getGameState(): GameState {
@@ -96,49 +97,32 @@ export function startGame(config: GameConfig, pseudos: string[]): void {
   state.chooserIndex = 0;
   state.lastCompleteRoundNumber = 0;
   state.questions = [];
-  state.perPlayerQuestions = null;
-  state.questionIndex = 0;
-}
-
-/** Questions communes (défaut v1) : un seul jeu de questions partagé par tous les joueurs. */
-export function setRoundQuestions(questions: Question[]): void {
-  state.questions = questions;
-  state.perPlayerQuestions = null;
-  state.questionIndex = 0;
 }
 
 /**
- * Questions différenciées (Lot 3, GAME_DESIGN_V2.md §5.1) : un jeu de questions PAR joueur,
- * index aligné sur PlayerSlot[] (même ordre que la réponse de GET /questions/distinct).
+ * Question de la manche en cours (v2.1 : une manche = une question). Questions communes
+ * (défaut v1) : une seule question, dupliquée pour chaque joueur (toutes les entrées sont
+ * identiques). Questions différenciées (§5.1) : une question distincte par joueur, index
+ * aligné sur PlayerSlot[] (même ordre que GET /questions/distinct).
  */
-export function setPerPlayerRoundQuestions(perPlayerQuestions: Question[][]): void {
-  state.questions = [];
-  state.perPlayerQuestions = perPlayerQuestions;
-  state.questionIndex = 0;
+export function setRoundQuestion(questions: Question[]): void {
+  state.questions = questions;
 }
 
+// isDifferentiated() se déduit du config plutôt que d'un état runtime séparé (v1 avait deux
+// structures parallèles questions/perPlayerQuestions ; v2.1 unifie sur un seul tableau
+// `questions` toujours de longueur playerCount, cf. setRoundQuestion).
 export function isDifferentiated(): boolean {
-  return state.perPlayerQuestions !== null;
+  return state.config?.differentiatedQuestions ?? false;
 }
 
 /**
- * Question courante pour un joueur donné : en mode commun, la même pour tout le monde
- * (playerIndex ignoré) ; en mode différencié, celle de SON tableau à l'index de tour
- * courant (§5.1 : questionIndex reste commun, seule la question diffère par joueur).
+ * Question courante pour un joueur donné : en mode commun, toutes les entrées de
+ * state.questions sont la même Question (playerIndex n'a pas d'effet) ; en mode
+ * différencié, chaque joueur porte la sienne à son propre index.
  */
 export function currentQuestion(playerIndex = 0): Question | null {
-  if (state.perPlayerQuestions) {
-    return state.perPlayerQuestions[playerIndex]?.[state.questionIndex] ?? null;
-  }
-  return state.questions[state.questionIndex] ?? null;
-}
-
-/** Nombre de questions de la manche en cours, quel que soit le mode (commun/différencié). */
-export function roundQuestionCount(): number {
-  if (state.perPlayerQuestions) {
-    return state.perPlayerQuestions[0]?.length ?? 0;
-  }
-  return state.questions.length;
+  return state.questions[playerIndex] ?? null;
 }
 
 export function playerCount(): number {
@@ -178,20 +162,13 @@ export function recordAnswer(playerIndex: number, answer: RawAnswer, basePoints:
   player.bestStreak = Math.max(player.bestStreak, newStreak);
 }
 
-export function advanceQuestion(): boolean {
-  if (state.questionIndex + 1 < roundQuestionCount()) {
-    state.questionIndex += 1;
-    return true;
-  }
-  return false;
-}
-
 /**
  * Fin de partie assouplie (Lot 5 v2, GAME_DESIGN_V2.md §4.2) : à appeler dès que la manche en
- * cours vient de se terminer PROPREMENT (tous les joueurs ont fini leurs N questions), AVANT
- * de décider si la partie continue ou s'arrête ici (cible de points atteinte, cf.
- * Game.svelte::handleNext) — sinon une partie qui se termine pile à la fin d'une manche
- * perdrait à tort les points de cette dernière manche au moment du scoring final.
+ * cours vient de se terminer PROPREMENT (tous les joueurs ont répondu à LA question de cette
+ * manche — v2.1, manche = question), AVANT de décider si la partie continue ou s'arrête ici
+ * (cible de points atteinte, cf. Game.svelte::handleAllAnswered) — sinon une partie qui se
+ * termine pile à la fin d'une manche perdrait à tort les points de cette dernière manche au
+ * moment du scoring final.
  */
 export function markRoundComplete(): void {
   state.lastCompleteRoundNumber = state.roundNumber;
@@ -199,15 +176,14 @@ export function markRoundComplete(): void {
 
 /**
  * Chooser en rotation circulaire (GAME_DESIGN_V2.md §1.3) : le joueur i choisit la
- * catégorie du joueur i+1 mod N. Se réduit à l'alternance stricte v1 pour N=2.
+ * catégorie du joueur i+1 mod N. Se réduit à l'alternance stricte v1 pour N=2. v2.1 : appelé
+ * à CHAQUE question (une manche = une question), plus seulement tous les questionsPerRound.
  */
 export function advanceRound(): void {
   state.roundNumber += 1;
   const n = state.players?.length ?? 1;
   state.chooserIndex = (state.chooserIndex + 1) % n;
   state.questions = [];
-  state.perPlayerQuestions = null;
-  state.questionIndex = 0;
 }
 
 /**
@@ -259,8 +235,6 @@ export function resetGame(): void {
   state.chooserIndex = 0;
   state.lastCompleteRoundNumber = 0;
   state.questions = [];
-  state.perPlayerQuestions = null;
-  state.questionIndex = 0;
 }
 
 /**

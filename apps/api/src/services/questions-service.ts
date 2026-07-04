@@ -111,7 +111,11 @@ export async function drawDistinctSetsForPlayers(
 
   const sets: QuestionRow[][] = [];
   let cursor = 0;
-  let degradedCursor = 0;
+  // Le curseur de dégradation CONTINUE depuis là où le curseur disjoint s'est arrêté (pas de
+  // 0) : sinon le premier joueur dégradé repioche pool.slice(0, count), exactement le même
+  // sous-ensemble que le tout premier joueur non-dégradé (bug corrigé — recoupement total
+  // plutôt que décalé, cf. test "jamais identique au joueur non dégradé" ci-dessous).
+  let degradedCursor = cursor;
 
   for (let player = 0; player < playerCount; player++) {
     const remainingDisjoint = pool.length - cursor;
@@ -121,16 +125,17 @@ export async function drawDistinctSetsForPlayers(
       // des précédents : on avance simplement le curseur (règle 1 ET 2 respectées).
       sets.push(pool.slice(cursor, cursor + count));
       cursor += count;
+      degradedCursor = cursor;
       continue;
     }
 
     // Pool disjoint épuisé pour ce joueur : on relâche la règle 2 (non-répétition
     // inter-joueurs) en repiochant dans le pool complet, mais on continue à garantir la
     // règle 1 (jamais deux fois la même question POUR CE joueur) tant que pool.length >=
-    // count. `degradedCursor` tourne indépendamment du curseur disjoint et avance à chaque
-    // joueur dégradé : deux joueurs consécutifs en dégradation reçoivent des tranches
-    // décalées du pool plutôt que la même (répartition équitable), tout en restant chacun
-    // sans répétition interne.
+    // count. `degradedCursor` avance à chaque joueur dégradé : deux joueurs consécutifs en
+    // dégradation (dégradé ou non juste avant) reçoivent des tranches décalées du pool
+    // plutôt que la même (répartition équitable), tout en restant chacun sans répétition
+    // interne.
     const setSize = Math.min(count, pool.length);
     const start = degradedCursor % pool.length;
     const wrapped = [...pool.slice(start), ...pool.slice(0, start)].slice(0, setSize);

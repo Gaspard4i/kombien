@@ -62,6 +62,9 @@
     "differentiated_questions": "Differentiated questions",
     "differentiated_questions_desc": "Each player gets their own questions, within the same theme.",
     "differentiated_questions_forced": "Mandatory: each player already has their own theme.",
+    "answer_timer_title": "Answer timer",
+    "answer_timer_desc": "Past this delay, the answer counts as not given.",
+    "answer_timer_off": "No limit",
     "start": "Start game",
     "errors": {
       "pseudo_required": "Enter a nickname for every player.",
@@ -114,8 +117,12 @@
     }
   },
   "round": {
-    "label": "Round {{number}}",
-    "question_of": "Question {{current}} / {{total}}"
+    "label": "Round {{number}}"
+  },
+  "game": {
+    "timer_seconds": "{{seconds}} s",
+    "timer_expired": "Time's up",
+    "answer_missing": "No answer"
   },
   "calibration": {
     "intro_title": "Calibration",
@@ -143,7 +150,6 @@
     "correct": "Correct",
     "incorrect": "Incorrect",
     "points_earned": "+{{points}} pts",
-    "next_question": "Next question",
     "next_round": "Next round",
     "streak_up": "Streak going",
     "streak_broken": "Streak broken"

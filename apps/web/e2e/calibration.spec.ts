@@ -56,18 +56,11 @@ test('calibration : le seuil calibré est utilisé au scoring (deux joueurs peuv
 
   await expect(page.getByText(/Manche 1/)).toBeVisible();
 
-  // Sur chaque question de la manche 1 : A répond "longtemps" (cohérent avec son seuil bas),
-  // B répond "pas longtemps" (cohérent avec son seuil haut) -> les deux devraient être jugés
-  // corrects par leur seuil individuel respectif (vérification faite sur l'écran de fin,
-  // seule source de vérité serveur — API_CONTRACT.md POST /games). Joue la manche 1 complète
-  // (5 questions) avant de terminer : un arrêt à mi-manche l'annulerait (Lot 5 v2, §4.2).
-  for (let i = 0; i < 4; i++) {
-    await passTransition(page, pseudoA);
-    await page.getByRole('button', { name: 'OUI, LONGTEMPS' }).click();
-    await passTransition(page, pseudoB);
-    await page.getByRole('button', { name: 'NON, PAS LONGTEMPS' }).click();
-    await page.getByRole('button', { name: /Question suivante|Manche suivante/ }).click();
-  }
+  // v2.1 : une manche = une question -> la manche 1 est déjà complète après cette seule
+  // question (A répond "longtemps", cohérent avec son seuil bas ; B répond "pas longtemps",
+  // cohérent avec son seuil haut) -> les deux devraient être jugés corrects par leur seuil
+  // individuel respectif (vérification faite sur l'écran de fin, seule source de vérité
+  // serveur — API_CONTRACT.md POST /games).
   await passTransition(page, pseudoA);
   await page.getByRole('button', { name: 'OUI, LONGTEMPS' }).click();
   await passTransition(page, pseudoB);

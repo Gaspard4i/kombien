@@ -41,6 +41,10 @@ export interface RawAnswer {
   opponentEstValue?: number;
   opponentEstUnit?: UnitSlug;
   opponentEstimates?: DuelEstimate[];
+  // Timer de réponse expiré, pass-and-play (v2.1) : ce joueur n'a pas répondu dans le délai
+  // -> écart traité comme infini par scoreDuelRanked (jamais dans le groupe de tête), quelle
+  // que soit la valeur estValue/estUnit envoyée (non exploitable, cf. scoring.ts).
+  noAnswer?: boolean;
 }
 
 // Normalise les adversaires d'une réponse duel en liste, quel que soit le format
@@ -96,7 +100,12 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
       // chaque joueur a sa propre question donc sa propre durée réelle. En mode "questions
       // communes" toutes les durées sont identiques, scoreDuelRanked s'y réduit à l'écart
       // absolu v1 (cf. commentaire scoring.ts).
-      const self: DuelEstimate = { value: raw.estValue!, unit: raw.estUnit!, durationSeconds: raw.durationSeconds };
+      const self: DuelEstimate = {
+        value: raw.estValue!,
+        unit: raw.estUnit!,
+        durationSeconds: raw.durationSeconds,
+        noAnswer: raw.noAnswer,
+      };
       const opponents = resolveOpponentEstimates(raw);
       const estimates = [self, ...opponents];
       const points = scoreDuelRanked(estimates, raw.durationSeconds);
@@ -105,7 +114,9 @@ export function computePlayerRun(run: PlayerRun): PlayerComputed {
       // (§6.1 : bonne réponse duel = marquer >= aux autres). Généralise le cas 1
       // adversaire (v1) où opponentBasePoints est simplement l'unique autre point.
       opponentBasePoints = points.length > 1 ? Math.max(...points.slice(1)) : 0;
-      duelErrorSeconds = Math.abs(toSeconds(self.value, self.unit) - raw.durationSeconds);
+      // Timer expiré (v2.1) : estValue/estUnit ne portent aucune estimation réelle -> écart
+      // non exploitable, on le laisse à 0 plutôt que de calculer sur une valeur arbitraire.
+      duelErrorSeconds = raw.noAnswer ? 0 : Math.abs(toSeconds(self.value, self.unit) - raw.durationSeconds);
       wonDuel = basePoints === 2;
       if (wonDuel) duelsWon += 1;
     }

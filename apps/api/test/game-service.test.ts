@@ -238,6 +238,37 @@ test('computeGameResult : duel à 3 joueurs, le service reconstruit les estimati
   assert.equal(alice.is_winner, true);
 });
 
+test('computeGameResult : Duel, timer expiré (noAnswer) côté adversaire -> reconstruit correctement, ne fausse pas le classement', async () => {
+  // Timer de réponse pass-and-play (v2.1) : Bob n'a pas répondu (noAnswer=true), même si son
+  // payload contient une estimation factice qui serait pile la vérité (piège anti-triche).
+  // Le service doit reconstruire l'estimation RÉELLE de Bob (avec noAnswer) depuis SA PROPRE
+  // réponse, pas depuis ce qu'Alice prétend dans opponentEst*.
+  const players: GamePlayerInput[] = [
+    {
+      pseudo: 'Alice',
+      answers: [
+        { mode: 'duel', questionId: 2, roundIndex: 0, responseTimeMs: 500, durationSeconds: 999999, estValue: 1200, estUnit: 'second' },
+      ],
+    },
+    {
+      pseudo: 'Bob',
+      answers: [
+        { mode: 'duel', questionId: 2, roundIndex: 0, responseTimeMs: 0, durationSeconds: 999999, estValue: 1000, estUnit: 'second', noAnswer: true },
+      ],
+    },
+  ];
+
+  const result = await computeGameResult(fakeDb(), players);
+  const alice = result.players.find((p) => p.pseudo === 'Alice')!;
+  const bob = result.players.find((p) => p.pseudo === 'Bob')!;
+
+  // Vraie durée serveur = 1000s : Bob serait exact (estValue=1000) s'il avait répondu, mais
+  // noAnswer l'exclut du groupe de tête -> Alice (écart 200) marque seule le pool complet.
+  assert.equal(alice.score, 2);
+  assert.equal(bob.score, 0);
+  assert.equal(alice.is_winner, true);
+});
+
 test('computeGameResult : Multi, co-vainqueurs à égalité de tête (pas un match nul général)', async () => {
   const players: GamePlayerInput[] = [
     { pseudo: 'Alice', answers: [{ mode: 'binaire', questionId: 1, roundIndex: 0, responseTimeMs: 500, durationSeconds: 0, binaryAnswer: 'yes' }] }, // 7200>=3600 -> correct, 1pt

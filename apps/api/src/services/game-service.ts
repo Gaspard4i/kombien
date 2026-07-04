@@ -120,7 +120,7 @@ function withOpponentEstimates(players: GamePlayerInput[]): GamePlayerInput[] {
       const list = byRound.get(a.roundIndex) ?? [];
       list.push({
         playerIndex,
-        estimate: { value: a.estValue!, unit: a.estUnit!, durationSeconds: a.durationSeconds },
+        estimate: { value: a.estValue!, unit: a.estUnit!, durationSeconds: a.durationSeconds, noAnswer: a.noAnswer },
       });
       byRound.set(a.roundIndex, list);
     }

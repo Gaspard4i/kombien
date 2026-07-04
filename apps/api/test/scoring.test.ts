@@ -108,6 +108,43 @@ test('scoreDuelRanked : durée commune (v1/Duo standard) -> écart relatif se r�
   );
 });
 
+// Timer de réponse expiré, pass-and-play (v2.1, même traitement que GAME_DESIGN_V2.md §6.2
+// pour le multi-écrans) : noAnswer -> écart infini, jamais dans le groupe de tête, quelle
+// que soit la valeur estValue/estUnit reçue (non exploitable, cf. commentaire scoring.ts).
+test('scoreDuelRanked : noAnswer -> écart infini, marque toujours 0 même si estValue serait proche', () => {
+  const points = scoreDuelRanked(
+    [
+      { value: 3600, unit: 'second', noAnswer: true }, // pile la vérité, mais n'a pas répondu
+      { value: 200, unit: 'second' },
+    ],
+    3600,
+  );
+  assert.deepEqual(points, [0, 2]);
+});
+
+test('scoreDuelRanked : tous les joueurs en noAnswer -> personne ne marque (pas de floor(2/k) sur Infinity)', () => {
+  const points = scoreDuelRanked(
+    [
+      { value: 1, unit: 'hour', noAnswer: true },
+      { value: 2, unit: 'hour', noAnswer: true },
+    ],
+    3600,
+  );
+  assert.deepEqual(points, [0, 0]);
+});
+
+test('scoreDuelRanked : un seul répondant parmi N -> il marque le pool complet (2 pts, k=1)', () => {
+  const points = scoreDuelRanked(
+    [
+      { value: 1, unit: 'hour', noAnswer: true },
+      { value: 2, unit: 'hour', noAnswer: true },
+      { value: 1, unit: 'hour' },
+    ],
+    3600,
+  );
+  assert.deepEqual(points, [0, 0, 2]);
+});
+
 test('scoreDuelRanked : mélange durée commune et durée différenciée (un seul joueur porte sa propre durée)', () => {
   // Si un seul DuelEstimate porte durationSeconds, les autres retombent sur le paramètre
   // durationSeconds (comportement de repli documenté).

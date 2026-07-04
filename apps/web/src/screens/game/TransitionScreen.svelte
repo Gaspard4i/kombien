@@ -1,8 +1,12 @@
 <script lang="ts">
   // Écran pass-and-play (DESIGN_SYSTEM.md §5.4) : masque le contenu suivant tant que le
-  // bouton n'est pas pressé (anti-triche visuelle). Bandeau de charnière ambre en repère.
+  // joueur n'a pas confirmé être prêt (anti-triche visuelle). Bandeau de charnière ambre en
+  // repère. v2.1 : TOUT l'écran est tapable (pas seulement le bouton, pénible à viser à
+  // chaque manche) — le bouton visuel reste affiché comme repère au centre (zone du pouce),
+  // mais un tap n'importe où sur l'écran confirme. Reste instantané (pas de délai ajouté),
+  // pas de timer ici (le joueur doit pouvoir prendre l'appareil tranquillement, cf
+  // GAME_DESIGN_V2.md §9 v2.1 : le timer de réponse ne s'applique qu'à l'écran de réponse).
   import { t } from '../../lib/i18n';
-  import Button from '../../lib/components/Button.svelte';
   import Icon from '../../lib/components/Icon.svelte';
   import SplitFlap from '../../lib/components/SplitFlap.svelte';
 
@@ -22,9 +26,25 @@
   // claquement du tableau qui change d'affichage. MAJUSCULES car les rouleaux ne portent
   // que [0-9 A-Z] (langage split-flap) ; troncature défensive pour ne pas déborder l'écran.
   const flapPseudo = $derived(pseudo.toUpperCase().slice(0, 12));
+
+  function handleKeydown(event: KeyboardEvent): void {
+    // Le rôle "button" natif gère déjà Enter/Espace au clic, mais un <div role="button">
+    // ne le fait pas nativement : on le reproduit explicitement (WAI-ARIA button pattern).
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onready();
+    }
+  }
 </script>
 
-<div class="transition">
+<div
+  class="transition"
+  role="button"
+  tabindex="0"
+  aria-label={`${t('transition.ready')} · ${pseudo} — ${t(roleKey)}`}
+  onclick={onready}
+  onkeydown={handleKeydown}
+>
   <div class="transition__hinge-bar" aria-hidden="true"></div>
 
   <div class="transition__content">
@@ -39,12 +59,14 @@
 
     <p class="transition__role">{t(roleKey)}</p>
 
-    <Icon name="hand-tap" size="lg" />
+    <!-- Repère visuel central (zone du pouce) : le tap sur TOUT l'écran confirme déjà (voir
+         le div racine), ce bouton n'est qu'un affordance visuelle, pas un second élément
+         interactif (aria-hidden : évite un doublon dans l'arbre d'accessibilité). -->
+    <div class="transition__cta" aria-hidden="true">
+      <Icon name="hand-tap" size="lg" />
+      <span class="transition__cta-label">{t('transition.ready')}</span>
+    </div>
   </div>
-
-  <Button variant="primary" fullWidth onclick={onready}>
-    {t('transition.ready')} · {pseudo}
-  </Button>
 </div>
 
 <style>
@@ -52,7 +74,7 @@
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
     align-items: stretch;
     gap: var(--gap-wide);
     padding: var(--gap-wide);
@@ -62,6 +84,14 @@
     width: 100%;
     max-width: 30rem;
     margin: 0 auto;
+    cursor: pointer;
+    border: none;
+    /* Focus clavier visible (WCAG 2.4.7) : liseré ambre, jamais supprimé silencieusement. */
+  }
+
+  .transition:focus-visible {
+    outline: 0.1875rem solid var(--amber);
+    outline-offset: -0.1875rem;
   }
 
   .transition__hinge-bar {
@@ -77,7 +107,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--gap);
+    gap: var(--gap-wide);
     text-align: center;
     color: var(--ink-hi);
   }
@@ -124,5 +154,39 @@
   .transition__role {
     color: var(--ink-mid);
     font-size: var(--fs-lead);
+  }
+
+  /* Repère central (zone du pouce, §100 du cahier v2.1) : gros bouton visuel, MAIS purement
+     décoratif (le vrai déclencheur est le div racine tapable, aria-hidden ci-dessus). Palette
+     ambre pleine largeur, cible tactile largement > 44px de haut. */
+  .transition__cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap-tight);
+    width: 100%;
+    min-height: 5rem;
+    padding: var(--gap-wide);
+    background: var(--amber);
+    color: var(--amber-ink);
+    border-radius: var(--radius-flap);
+    box-shadow: 0 0.1875rem 0 var(--amber-dim);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--fs-lead);
+    letter-spacing: 0.04em;
+    transition: transform var(--dur-quick) var(--ease-flap), box-shadow var(--dur-quick) var(--ease-flap);
+  }
+
+  .transition:active .transition__cta {
+    transform: translateY(0.1875rem);
+    box-shadow: 0 0 0 var(--amber-dim);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .transition__cta {
+      transition: none;
+    }
   }
 </style>

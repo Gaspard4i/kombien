@@ -83,15 +83,8 @@ for (const viewport of VIEWPORTS) {
     const pseudoD = uniquePseudo(`shotD${viewport.name}`);
     await setupGame(page, { mode: 'binaire', pseudos: [pseudoC, pseudoD], endCondition: 'manual' });
     await passCalibration(page, [pseudoC, pseudoD]);
-    // Le header (avec "Terminer la partie") n'est présent qu'à l'écran de réponse/révélation,
-    // pas sur l'écran de transition croisée qui suit une manche complète -> on clique juste
-    // après le reveal de la dernière question, avant le goNext qui basculerait vers cette
-    // transition (Lot 5 v2, GAME_DESIGN_V2.md §4.2).
-    for (let i = 0; i < 4; i++) {
-      await answerBinaire(page, pseudoC, 'yes');
-      await answerBinaire(page, pseudoD, 'no');
-      await page.getByRole('button', { name: /Question suivante|Manche suivante/ }).click();
-    }
+    // v2.1 : une manche = une question -> le header (avec "Terminer la partie") est déjà
+    // présent à l'écran de révélation de la 1ère (et unique) manche jouée.
     await answerBinaire(page, pseudoC, 'yes');
     await answerBinaire(page, pseudoD, 'no');
     await page.getByRole('button', { name: 'Terminer la partie' }).click();

@@ -7,18 +7,18 @@ test('mode Duel : partie complète à 2 joueurs, estimation valeur+unité, rév�
 
   await setupGame(page, { mode: 'duel', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
 
-  for (let i = 0; i < 5; i++) {
-    await expect(page.getByText(/Manche 1/)).toBeVisible();
-    // Duel : les deux joueurs saisissent leur estimation avant la révélation commune
-    // (contrairement à Binaire/Ordre, il n'y a pas de reveal intermédiaire par joueur).
-    await answerDuel(page, pseudoA, 2, 'Heure');
-    await answerDuel(page, pseudoB, 3, 'Heure');
-    await expect(page.getByText('Durée réelle')).toBeVisible();
-    await expect(page.locator('.reveal__pseudo', { hasText: pseudoA })).toBeVisible();
-    await expect(page.locator('.reveal__pseudo', { hasText: pseudoB })).toBeVisible();
-    await goNext(page);
-  }
+  await expect(page.getByText(/Manche 1/)).toBeVisible();
+  // Duel : les deux joueurs saisissent leur estimation avant la révélation commune
+  // (contrairement à Binaire/Ordre, il n'y a pas de reveal intermédiaire par joueur).
+  await answerDuel(page, pseudoA, 2, 'Heure');
+  await answerDuel(page, pseudoB, 3, 'Heure');
+  await expect(page.getByText('Durée réelle')).toBeVisible();
+  await expect(page.locator('.reveal__pseudo', { hasText: pseudoA })).toBeVisible();
+  await expect(page.locator('.reveal__pseudo', { hasText: pseudoB })).toBeVisible();
+  await goNext(page);
 
+  // v2.1 : une manche = une question -> rotation du chooser (croisement) dès la manche
+  // suivante, sans attendre un bloc de plusieurs questions.
   await expect(page.getByText('Tu choisis la catégorie')).toBeVisible();
 });
 
@@ -60,16 +60,8 @@ test('mode Duel : partie à 3 joueurs jusqu\'à la fin, classement final gère c
 
   // Toutes les mêmes estimations : égalité systématique -> k=3 -> floor(2/3)=0 pour tous
   // (GAME_DESIGN_V2.md §1.3, exemple "3 joueurs tous à égalité"). Score final 0-0-0, match nul.
-  // Termine la manche 1 complète (5 questions) : le header (avec "Terminer la partie") n'est
-  // présent qu'à l'écran de réponse/révélation, pas sur l'écran de transition croisée qui
-  // suit une manche complète -> on clique juste après le reveal de la dernière question,
-  // avant le goNext qui basculerait vers cette transition (Lot 5 v2, GAME_DESIGN_V2.md §4.2).
-  for (let i = 0; i < 4; i++) {
-    await answerDuel(page, pseudoA, 1, 'Heure');
-    await answerDuel(page, pseudoB, 1, 'Heure');
-    await answerDuel(page, pseudoC, 1, 'Heure');
-    await goNext(page);
-  }
+  // v2.1 : une manche = une question -> le header (avec "Terminer la partie") est déjà
+  // présent à l'écran de révélation de la 1ère (et unique) manche jouée.
   await answerDuel(page, pseudoA, 1, 'Heure');
   await answerDuel(page, pseudoB, 1, 'Heure');
   await answerDuel(page, pseudoC, 1, 'Heure');

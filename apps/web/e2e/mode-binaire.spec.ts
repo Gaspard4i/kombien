@@ -8,7 +8,7 @@ async function passCategoryTransitionAndPick(page: import('@playwright/test').Pa
   await page.getByRole('button', { name: 'Valider la catégorie' }).click();
 }
 
-test('mode Binaire : partie complète setup -> calibration -> manches -> révélation -> fin, scores corrects', async ({ page }) => {
+test('mode Binaire : partie complète setup -> calibration -> manche -> révélation -> manche suivante, scores corrects', async ({ page }) => {
   const pseudoA = uniquePseudo('binA');
   const pseudoB = uniquePseudo('binB');
 
@@ -18,17 +18,16 @@ test('mode Binaire : partie complète setup -> calibration -> manches -> révél
   await expect(page.getByRole('heading', { name: 'Calibration' })).toBeVisible();
   await passCalibration(page, [pseudoA, pseudoB]);
 
-  // Manche 1, 5 questions : chaque joueur répond, révélation, jusqu'à la fin de manche.
-  for (let i = 0; i < 5; i++) {
-    await expect(page.getByText(/Manche 1/)).toBeVisible();
-    await answerBinaire(page, pseudoA, 'yes');
-    await answerBinaire(page, pseudoB, 'no');
-    await expect(page.getByText('Durée réelle')).toBeVisible();
-    await goNext(page);
-  }
+  // v2.1 : une manche = une question. Chaque joueur répond, révélation, classement mis à
+  // jour immédiatement, puis rotation du chooser (croisement) avant la manche suivante.
+  await expect(page.getByText(/Manche 1/)).toBeVisible();
+  await answerBinaire(page, pseudoA, 'yes');
+  await answerBinaire(page, pseudoB, 'no');
+  await expect(page.getByText('Durée réelle')).toBeVisible();
 
   // Fin de manche 1 (1 pt max par bonne réponse, cible 30 non atteignable en 1 manche) ->
   // transition chooser croisé (B choisit pour la manche 2, alternance GAME_DESIGN §9.2).
+  await goNext(page);
   await expect(page.getByText('Tu choisis la catégorie')).toBeVisible();
   await passCategoryTransitionAndPick(page);
   await expect(page.getByText(/Manche 2/)).toBeVisible();
@@ -46,14 +45,11 @@ test('mode Binaire : partie jusqu\'au bout (arrêt manuel), écran de fin affich
   await setupGame(page, { mode: 'binaire', pseudos: [pseudoA, pseudoB], endCondition: 'manual' });
   await passCalibration(page, [pseudoA, pseudoB]);
 
-  for (let i = 0; i < 5; i++) {
-    await answerBinaire(page, pseudoA, 'yes');
-    await answerBinaire(page, pseudoB, 'no');
-    await goNext(page);
-  }
-
-  // Fin de manche 1 en mode manuel : transition chooser + choix de catégorie manche 2.
-  // L'ordre de réponse reste A puis B (seul le chooser croisé change, pas l'ordre de jeu).
+  // Manche 1 : réponses puis rotation chooser croisé vers la manche 2 (v2.1 : chaque manche
+  // = une question, la transition catégorie suit donc directement le premier reveal).
+  await answerBinaire(page, pseudoA, 'yes');
+  await answerBinaire(page, pseudoB, 'no');
+  await goNext(page);
   await passCategoryTransitionAndPick(page);
 
   await answerBinaire(page, pseudoA, 'yes');

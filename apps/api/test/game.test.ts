@@ -87,6 +87,30 @@ test('computePlayerRun : duel perdu, aucun point', () => {
   assert.equal(c.duelsWon, 0);
 });
 
+// Timer de réponse expiré, pass-and-play (v2.1) : noAnswer -> 0 pt garanti même si
+// estValue/estUnit (factices côté client) tomberaient par hasard pile sur la vérité.
+test('computePlayerRun : duel, timer expiré (noAnswer) -> 0 pt et duelErrorSeconds à 0 malgré estValue trompeur', () => {
+  const answers: RawAnswer[] = [
+    {
+      mode: 'duel',
+      questionId: 1,
+      roundIndex: 0,
+      responseTimeMs: 5000,
+      durationSeconds: 3600,
+      estValue: 1, // pile la vérité (1 heure = 3600s) : ne doit PAS gagner malgré ça
+      estUnit: 'hour',
+      noAnswer: true,
+      opponentEstValue: 5,
+      opponentEstUnit: 'hour',
+    },
+  ];
+  const c = computePlayerRun({ answers });
+  assert.equal(c.finalScore, 0);
+  assert.equal(c.duelsWon, 0);
+  assert.equal(c.playedAnswers[0]!.duelErrorSeconds, 0);
+  assert.equal(c.playedAnswers[0]!.wonDuel, false);
+});
+
 test('computePlayerRun : partie sans réponse -> accuracy 0', () => {
   const c = computePlayerRun({ answers: [] });
   assert.equal(c.accuracy, 0);

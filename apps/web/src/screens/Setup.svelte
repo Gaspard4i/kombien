@@ -25,9 +25,12 @@
 
   const MODES: GameMode[] = ['binaire', 'ordre_de_grandeur', 'duel'];
   const TARGET_SCORE_OPTIONS = [30, 50, 100];
-  const QUESTIONS_PER_ROUND = 5;
   const MIN_PLAYERS = 2;
   const MAX_PLAYERS = 8;
+  // Timer de réponse pass-and-play (v2.1) : null = pas de limite. Défaut 5s (option la
+  // plus courte proposée, cohérente avec la demande utilisateur).
+  const ANSWER_TIMER_OPTIONS: (number | null)[] = [5, 10, 15, null];
+  const DEFAULT_ANSWER_TIMER = 5;
 
   let pseudos = $state<string[]>(['', '']);
   let mode = $state<GameMode | null>(null);
@@ -38,6 +41,7 @@
   // thème, sauf 'per_player' où elle est obligatoire (isDifferentiationForced) — cf. l'effet
   // ci-dessous qui la verrouille à true dans ce cas.
   let differentiatedQuestions = $state(false);
+  let answerTimerSeconds = $state<number | null>(DEFAULT_ANSWER_TIMER);
   let endCondition = $state<EndCondition>('points');
   let targetScore = $state(50);
   let loadingCategories = $state(true);
@@ -119,8 +123,8 @@
         themeSelection,
         endCondition,
         targetScore,
-        questionsPerRound: QUESTIONS_PER_ROUND,
         differentiatedQuestions: differentiationForced || differentiatedQuestions,
+        answerTimerSeconds,
       },
       pseudos.map((p) => p.trim()),
     );
@@ -278,6 +282,23 @@
         </div>
       </div>
     {/if}
+  </section>
+
+  <section class="setup__section">
+    <h2 class="setup__section-title">{t('setup.answer_timer_title')}</h2>
+    <p class="setup__hint">{t('setup.answer_timer_desc')}</p>
+    <div class="setup__timer-options">
+      {#each ANSWER_TIMER_OPTIONS as option (option ?? 'off')}
+        <button
+          type="button"
+          class="setup__timer"
+          class:setup__timer--selected={answerTimerSeconds === option}
+          onclick={() => (answerTimerSeconds = option)}
+        >
+          {option === null ? t('setup.answer_timer_off') : t('game.timer_seconds', { seconds: option })}
+        </button>
+      {/each}
+    </div>
   </section>
 
   {#if formError}
@@ -561,6 +582,39 @@
   }
 
   .setup__target--selected {
+    background: var(--amber);
+    color: var(--amber-ink);
+    box-shadow: 0 0.125rem 0 var(--amber-dim);
+  }
+
+  .setup__hint {
+    margin: 0;
+    font-size: var(--fs-micro);
+    color: var(--ink-mid);
+  }
+
+  .setup__timer-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-tight);
+  }
+
+  .setup__timer {
+    flex: 1;
+    min-width: 4.5rem;
+    min-height: var(--touch-min);
+    background: var(--flap);
+    color: var(--flap-ink);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: var(--fs-body);
+    border: none;
+    border-radius: var(--radius-flap);
+    box-shadow: 0 0.125rem 0 var(--hinge);
+    cursor: pointer;
+  }
+
+  .setup__timer--selected {
     background: var(--amber);
     color: var(--amber-ink);
     box-shadow: 0 0.125rem 0 var(--amber-dim);

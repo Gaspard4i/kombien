@@ -116,10 +116,19 @@ Body :
   binaryAnswer?: "yes" | "no", thresholdSeconds?,
   // ordre de grandeur :
   chosenUnit?,
-  // duel :
-  estValue?, estUnit?, opponentEstValue?, opponentEstUnit?
+  // duel : opponentEstimates (liste, N joueurs) est la source de vérité dès que présente ;
+  // opponentEstValue/opponentEstUnit (un seul adversaire, contrat v1) reste accepté en alias
+  // pour compatibilité mais ignoré au-delà de 2 joueurs (cf. plus bas).
+  estValue?, estUnit?, opponentEstValue?, opponentEstUnit?, opponentEstimates?: [{ value, unit, durationSeconds?, noAnswer? }, ...],
+  // timer de réponse expiré (pass-and-play v2.1 ou multi-écrans v2.2, GAME_DESIGN_V2.md §5bis/§6.2) :
+  noAnswer?: boolean,
 }
 ```
+`noAnswer` (timer de réponse expiré, pass-and-play v2.1) : le joueur n'a pas répondu dans le
+délai imparti. En Binaire/Ordre de grandeur, le front envoie directement une réponse "mauvaise"
+(0 pt). En Duel, `noAnswer: true` fait ignorer `estValue`/`estUnit` de ce joueur au scoring —
+son écart est traité comme infini (jamais dans le groupe de tête), quelle que soit la valeur
+envoyée (non exploitable, cf. `domain/scoring.ts::scoreDuelRanked`).
 `questionId` est **requis** (v2, ajout par rapport à v1) : le serveur recharge
 `duration_seconds` depuis la table `questions` par cet id, et ignore la valeur
 envoyée par le client dans `durationSeconds` — anti-triche renforcé, on ne fait
