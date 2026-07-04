@@ -9,6 +9,7 @@
 #   web : 127.0.0.1:8013 -> container:80
 #   api : 127.0.0.1:8014 -> container:3000
 #   db  : PAS de port expose (acces interne uniquement)
+#   redis : PAS de port expose (acces interne uniquement, rooms ephemeres TTL, pas de volume)
 #
 # Lancer depuis la racine du repo :
 #   docker compose -f infra/docker-compose.yml --env-file infra/.env build
@@ -37,6 +38,23 @@ services:
     networks:
       - kombien-internal
 
+  redis:
+    image: redis:7-alpine
+    container_name: kombien-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - kombien-internal
+
   api:
     build:
       context: ..
@@ -47,10 +65,13 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kombien}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-kombien}
       ADMIN_SECRET: ${ADMIN_SECRET}
+      REDIS_URL: redis://kombien-redis:6379
       PORT: "3000"
       NODE_ENV: production
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       # Traefik proxie kombien-api.gazai.fr -> 127.0.0.1:8014

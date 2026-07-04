@@ -258,3 +258,106 @@ Codes d'erreur par ligne : `text_fr_required`, `duration_invalid`,
 
 Chaque import est tracé dans `import_batches` (fichier, format, compteurs,
 date) — table de journalisation, pas de contenu de fichier stocké.
+
+## Rooms multi-écrans temps réel (Lot 9, PLAN_V2.md + GAME_DESIGN_V2.md §6)
+
+Rooms Redis + WebSocket pour le jeu type Kahoot (un écran principal, une manette maître de
+jeu, un appareil par joueur). Redis est branché en **best-effort** : si la connexion échoue au
+démarrage de l'API, tout le reste de l'API (pass-and-play, admin, etc.) continue de fonctionner
+normalement, seules les routes rooms répondent `503 room_service_unavailable`.
+
+### `POST /rooms`
+
+Crée une room (lobby vide, aucun joueur). Body :
+```
+{ categorySlugs: string[], mode: "binaire"|"ordre_de_grandeur"|"duel", questionCount?: int (déf. 10), timerSeconds?: int (déf. 10) }
+```
+Tire `questionCount` questions dans l'union des `categorySlugs` (réutilise
+`drawQuestionsForCategories`, même pool que le pass-and-play). Réponse 201 :
+```
+{ code: string, qr: string }  // code = 6 caractères A-Z0-9 (sans 0/O/1/I/L) ; qr = data URL PNG
+```
+`qr` encode un lien `WEB_BASE_URL/rooms/join?code=XXXXXX` (scan direct, pas juste le code brut).
+404 `category_not_found` si un slug est inconnu. 503 `room_service_unavailable` si Redis est
+indisponible.
+
+### `GET /rooms/:code`
+
+État public minimal pour rejoindre (avant d'ouvrir la connexion WS) :
+```
+{ code, mode, status: "lobby"|"calibration"|"question"|"results"|"ended", playerCount }
+```
+404 `room_not_found` si le code est inconnu ou si le TTL (30 min d'inactivité) a expiré. 503
+`room_service_unavailable` si Redis est indisponible.
+
+### `GET /rooms/ws` (upgrade WebSocket)
+
+Un seul canal générique sert les 3 rôles (écran principal, manette MJ, appareil joueur) — le
+rôle MJ est déterminé côté serveur (premier joueur connecté à la room, §6.1), jamais déclaré
+par le client. `maxPayload` 16 Ko (anti-DoS). Tant qu'aucun message `join` n'a été reçu sur une
+connexion, tout autre message est rejeté (`error` `unknown_player`).
+
+Types complets : `apps/api/src/domain/room-protocol.ts`.
+
+#### Client -> serveur
+
+| Message | Champs | Effet |
+|---|---|---|
+| `join` | `code, pseudo, playerId?` | Rejoint la room. Avec `playerId` (reconnexion) : reprend la place existante (score/rôle inchangés) si l'id est connu de la room, sinon retombe sur un join classique (nécessite alors `pseudo`). Sans `playerId` : nouveau joueur, id généré serveur. Le 1er joueur devient MJ. |
+| `answer` | `binaryAnswer? \| chosenUnit? \| estValue?+estUnit?` | Réponse brute à la question en cours. `questionId`/`roundIndex`/`durationSeconds` ne sont **jamais** envoyés par le client : la room connaît déjà la question courante (vérité terrain chargée serveur à la création). Une seule réponse acceptée par joueur et par question (`already_answered` sinon). |
+| `mj:start` | — | MJ uniquement (`not_game_master` sinon). Démarre la partie : 1ère question, arme le timer. |
+| `mj:next` | — | MJ uniquement. Pendant `results` : avance à la question suivante (ou termine la partie si le pool est épuisé). |
+| `mj:skip` | — | MJ uniquement. Pendant `question` : clôture immédiatement, équivalent à l'expiration du timer (débloquer un joueur AFK, §6.3). Traité de façon identique à `mj:next` reçu pendant la phase `question`. |
+
+#### Serveur -> client
+
+| Message | Contenu | Quand |
+|---|---|---|
+| `room:state` | `code, mode, status, timerSeconds, players[{id,pseudo,isGameMaster,connected,score,hasAnswered}], you:{playerId,isGameMaster}` | Après join/leave/déconnexion/reconnexion/réponse reçue. **Personnalisé par destinataire** (`you`) — jamais un broadcast identique à tous. `hasAnswered` indique qu'une réponse a été reçue SANS révéler laquelle (§6.1 : jamais de fuite avant révélation, y compris au MJ). |
+| `question:show` | `questionIndex, questionId, textFr, textEn, endsAt` | Nouvelle question affichée. `endsAt` (epoch ms) = échéance absolue pour le décompte visuel client ; c'est le **serveur** qui clôt à expiration, le client n'affiche qu'un timer dérivé. |
+| `question:results` | `questionIndex, durationSeconds, results[{playerId,pseudo,points,scoreAfter,binaryAnswer?,chosenUnit?,estValue?,estUnit?,noAnswer}], leaderboard[{playerId,pseudo,score}]` | Question clôturée (tous ont répondu, timer expiré, ou `mj:skip`/`mj:next`). Première apparition des réponses de chacun — révélation, jamais avant. |
+| `game:end` | `leaderboard[{playerId,pseudo,score}]` | Pool de questions épuisé. |
+| `error` | `code: room_not_found\|unknown_player\|not_in_question\|already_answered\|not_game_master\|invalid_message` | Rejet d'un message client. |
+
+#### Règles serveur-autoritatives
+
+- **Timer** (§6.2) : 10 s par défaut, configurable à la création (`POST /rooms` `timerSeconds`).
+  Le **serveur** arme un `setTimeout` à `question:show` ; à expiration, la question est clôturée
+  même si des joueurs n'ont pas répondu — non-réponse traitée exactement comme en pass-and-play
+  v2.1 (Binaire/Ordre de grandeur : 0 pt, streak cassé ; Duel : écart infini, jamais en tête).
+  Un joueur **déconnecté** ne bloque jamais la clôture (seuls les joueurs `connected` sont
+  attendus) ; clôture aussi dès que tous les joueurs connectés ont répondu, ou sur `mj:skip`.
+- **Anti-triche** : le client envoie une réponse brute sans aucune vérité terrain (pas de
+  `questionId`/`durationSeconds`/`thresholdSeconds` dans le message `answer` — la room les
+  connaît déjà côté serveur). Duel à N joueurs : les estimations adverses sont reconstruites
+  serveur à partir des réponses réellement reçues sur le round (jamais déclarées par le
+  client), même logique que `POST /games`/`withOpponentEstimates`.
+- **Streak** : persiste question après question pendant toute la partie (état en mémoire
+  process par room, `StreakByPlayer`), même mécanique que le pass-and-play
+  (`domain/streak.ts::applyAnswer`) — pas de logique de streak dupliquée.
+- **Reconnexion** : le client renvoie `code` + son `playerId` (obtenu au premier `join`,
+  conservé côté front). Le serveur restaure `connected: true` sans toucher au score ni au rôle
+  de MJ, puis renvoie un `room:state` + `question:show` (si une question est en cours) en
+  resync. Si le `playerId` est inconnu de la room (TTL expiré) ou absent, un nouveau `pseudo`
+  est requis pour rejoindre comme nouveau joueur.
+- **Concurrence** : les mutations d'une même room (join, réponse, clôture, avance) sont
+  sérialisées côté serveur (verrou en mémoire par code de room) — un `join` concurrent ne peut
+  jamais produire deux maîtres de jeu.
+- **Calibration Binaire en room** : périmètre réduit pour ce lot — la calibration par joueur
+  (GAME_DESIGN_V2.md §3, 5 questions hors catégorie) n'est **pas encore branchée** sur le
+  protocole room ; le mode Binaire en room utilise `threshold_seconds` de la catégorie (v1)
+  tant que le statut `calibration` n'est pas implémenté côté transport (prévu au type
+  `RoomStatus` mais non piloté par `startGame`).
+
+### Structures Redis
+
+| Clé | Type | Contenu |
+|---|---|---|
+| `room:{code}` | Hash | `mode, status, timerSeconds, questionIndex, playerCount` — inspectable directement en `redis-cli`. |
+| `room:{code}:players` | Sorted Set | Classement de session, scoré par le score cumulé de chaque joueur (`ZRANGE ... REV` = classement trié gratuitement). |
+| `room:{code}:state` | String (JSON) | Snapshot complet de l'état (joueurs avec rôle/connexion, réponses en attente, question courante, derniers résultats) — source de vérité pour la reconnexion et le resync. |
+
+TTL 30 min sur les 3 clés, rafraîchi à chaque écriture (activité de la room). La liste ordonnée
+des questions tirées à la création (avec leur vérité terrain) est gardée en mémoire process
+(mono-instance, pas de pub/sub nécessaire pour ce lot) plutôt que dans le snapshot Redis exposé
+aux clients.

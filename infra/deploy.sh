@@ -112,7 +112,7 @@ docker compose -f "\$COMPOSE_FILE" --env-file "\$ENV_FILE" up -d
 
 # 3f. Attente healthcheck (max 90s) - db en premier car api en depend
 log "Attente healthcheck (max 90s)..."
-for svc in kombien-db kombien-api kombien-web; do
+for svc in kombien-db kombien-redis kombien-api kombien-web; do
   ok=false
   for i in \$(seq 1 18); do
     status=\$(docker inspect --format='{{.State.Health.Status}}' "\$svc" 2>/dev/null || echo "missing")

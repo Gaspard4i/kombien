@@ -19,6 +19,17 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build:
       context: ..
@@ -30,6 +41,7 @@ services:
     environment:
       DATABASE_URL: postgres://kombien:kombien_dev@db:5432/kombien
       ADMIN_SECRET: dev-secret-non-utilise-en-prod
+      REDIS_URL: redis://redis:6379
       PORT: 3000
       NODE_ENV: development
     volumes:
@@ -39,6 +51,8 @@ services:
       - '127.0.0.1:3000:3000'
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   web:
