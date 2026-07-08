@@ -38,6 +38,7 @@
     "title": "Kombien",
     "subtitle": "Le duo qui estime le temps qui passe.",
     "play": "Jouer",
+    "play_multiscreen": "Jouer sur plusieurs écrans",
     "contribute": "Proposer une question",
     "select_language": "Choisir la langue",
     "game_cancelled": "Partie interrompue avant la fin de la 1ère manche — aucun résultat."
@@ -301,7 +302,87 @@
     "network_error": "Impossible de contacter le serveur. Vérifie ta connexion et réessaie.",
     "category_not_found": "Cette catégorie n'existe pas.",
     "question_not_found": "Cette question n'existe pas.",
-    "unknown_error": "Une erreur inattendue est survenue. Réessaie."
+    "unknown_error": "Une erreur inattendue est survenue. Réessaie.",
+    "room_not_found": "Cette partie n'existe pas ou a expiré.",
+    "room_service_unavailable": "Le service multi-écrans est momentanément indisponible. Réessaie dans un instant.",
+    "connection_lost": "Connexion perdue avec la partie.",
+    "not_in_question": "Aucune question en cours.",
+    "already_answered": "Tu as déjà répondu à cette question.",
+    "not_game_master": "Seul le maître de jeu peut faire ça.",
+    "invalid_message": "Une erreur de communication est survenue."
+  },
+  "room": {
+    "home_desc": "Un écran principal, une manette, un appareil par joueur.",
+    "create": {
+      "title": "Créer une partie",
+      "mode_title": "Choisis le mode",
+      "category_title": "Choisis un ou plusieurs thèmes",
+      "category_hint": "Sélectionne au moins un thème.",
+      "question_count_title": "Nombre de questions",
+      "timer_title": "Temps de réponse",
+      "submit": "Créer la partie",
+      "submitting": "Création de la partie…",
+      "error": "Impossible de créer la partie. Réessaie."
+    },
+    "join": {
+      "title": "Rejoindre une partie",
+      "code_label": "Code de la partie",
+      "code_placeholder": "ABCDEF",
+      "pseudo_label": "Ton pseudo",
+      "pseudo_placeholder": "Ton pseudo",
+      "submit": "Rejoindre",
+      "errors": {
+        "code_required": "Renseigne le code de la partie.",
+        "pseudo_required": "Renseigne ton pseudo."
+      }
+    },
+    "lobby": {
+      "title": "En attente des joueurs",
+      "code_label": "Code de la partie",
+      "scan_hint": "Scanne ce code pour rejoindre",
+      "players_title": "Joueurs connectés",
+      "waiting_master": "En attente que le maître de jeu lance la partie…",
+      "start": "Démarrer la partie",
+      "you_are_master": "Tu es le maître de jeu",
+      "you_are_player": "Tu es joueur",
+      "use_as_main_screen": "Utiliser cet appareil comme écran principal",
+      "main_screen_hint": "À poser sur un grand écran, avant que les joueurs rejoignent : lecture seule, sans zone de réponse."
+    },
+    "connection": {
+      "connecting": "Connexion à la partie…",
+      "reconnecting": "Reconnexion en cours…",
+      "disconnected_player": "Déconnecté"
+    },
+    "screen": {
+      "waiting_question": "En attente de la prochaine question…",
+      "waiting_answers": "En attente des réponses…",
+      "answered_count": "{{answered}} / {{total}} ont répondu",
+      "results_title": "Résultats",
+      "leaderboard_title": "Classement",
+      "next_question": "Question suivante",
+      "game_over": "Partie terminée",
+      "final_leaderboard": "Classement final"
+    },
+    "master": {
+      "title": "Manette",
+      "controls_title": "Contrôles",
+      "start": "Démarrer la partie",
+      "next": "Question suivante",
+      "skip": "Passer la question",
+      "waiting_reveal": "Réponses en attente de révélation…",
+      "you_answered": "Ta réponse est enregistrée",
+      "no_spoiler": "Tu ne verras la bonne réponse qu'à la révélation, comme les autres joueurs."
+    },
+    "player": {
+      "title": "Ta partie",
+      "waiting_start": "En attente que le maître de jeu démarre la partie…",
+      "answer_recorded": "Réponse enregistrée",
+      "your_result": "Ton résultat",
+      "your_points": "+{{points}} pts",
+      "your_score": "Ton score : {{score}}",
+      "waiting_next": "En attente de la question suivante…"
+    },
+    "calibration_note": "En room, le mode Binaire utilise le seuil de la catégorie (pas de calibration individuelle en multi-écrans pour l'instant)."
   },
   "common": {
     "loading": "Chargement",

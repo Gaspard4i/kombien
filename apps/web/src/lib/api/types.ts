@@ -105,3 +105,26 @@ export interface SubmitGameResult {
   cancelled: boolean;
   players: SubmitGamePlayerResult[];
 }
+
+// --- Rooms multi-écrans temps réel (Lot 9, API_CONTRACT.md) ---
+
+export interface CreateRoomInput {
+  categorySlugs: string[];
+  mode: GameMode;
+  questionCount?: number;
+  timerSeconds?: number;
+}
+
+export interface CreateRoomResult {
+  code: string;
+  qr: string; // data URL PNG
+}
+
+export type RoomLobbyStatus = 'lobby' | 'calibration' | 'question' | 'results' | 'ended';
+
+export interface RoomInfo {
+  code: string;
+  mode: GameMode;
+  status: RoomLobbyStatus;
+  playerCount: number;
+}

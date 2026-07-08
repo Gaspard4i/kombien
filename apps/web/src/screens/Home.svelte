@@ -39,6 +39,21 @@
       <Icon name="clock" size="lg" />
       {t('home.play')}
     </Button>
+
+    <div class="home__multiscreen">
+      <span class="home__multiscreen-desc">{t('room.home_desc')}</span>
+      <div class="home__multiscreen-actions">
+        <Button variant="secondary" fullWidth onclick={() => navigate({ name: 'room-create' })}>
+          <Icon name="user-square" size="md" />
+          {t('home.play_multiscreen')}
+        </Button>
+        <Button variant="ghost" fullWidth onclick={() => navigate({ name: 'room-join' })}>
+          <Icon name="hand-tap" size="md" />
+          {t('room.join.title')}
+        </Button>
+      </div>
+    </div>
+
     <Button variant="ghost" fullWidth onclick={() => navigate({ name: 'contribute' })}>
       <Icon name="squares-four" size="md" />
       {t('home.contribute')}
@@ -93,5 +108,28 @@
     display: flex;
     flex-direction: column;
     gap: var(--gap);
+  }
+
+  /* Sous-bloc "multi-écrans" (Lot 9) : caisson dédié pour regrouper créer/rejoindre sous
+     une même description, sans casser la hiérarchie des boutons pleine largeur d'--actions. */
+  .home__multiscreen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-tight);
+    padding: var(--gap) var(--pad-card);
+    background: var(--board-raised);
+    border-radius: var(--radius-card);
+  }
+
+  .home__multiscreen-desc {
+    text-align: center;
+    color: var(--ink-mid);
+    font-size: var(--fs-micro);
+  }
+
+  .home__multiscreen-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-tight);
   }
 </style>

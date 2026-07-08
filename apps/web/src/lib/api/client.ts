@@ -3,8 +3,11 @@ import type {
   Category,
   CreateQuestionInput,
   CreateQuestionResult,
+  CreateRoomInput,
+  CreateRoomResult,
   Question,
   ReportQuestionResult,
+  RoomInfo,
   SubmitGameInput,
   SubmitGameResult,
 } from './types';
@@ -103,6 +106,16 @@ export function reportQuestion(id: number): Promise<ReportQuestionResult> {
 
 export function submitGame(input: SubmitGameInput): Promise<SubmitGameResult> {
   return request('/games', { method: 'POST', body: JSON.stringify(input) });
+}
+
+// --- Rooms multi-écrans temps réel (Lot 9) ---
+
+export function createRoom(input: CreateRoomInput): Promise<CreateRoomResult> {
+  return request('/rooms', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function getRoomInfo(code: string): Promise<RoomInfo> {
+  return request(`/rooms/${encodeURIComponent(code)}`);
 }
 
 // --- Admin (header x-admin-secret) ---

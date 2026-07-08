@@ -38,6 +38,7 @@
     "title": "Kombien",
     "subtitle": "The duo that estimates how time flies.",
     "play": "Play",
+    "play_multiscreen": "Play on multiple screens",
     "contribute": "Suggest a question",
     "select_language": "Choose language",
     "game_cancelled": "Game interrupted before the end of round 1 — no result."
@@ -301,7 +302,87 @@
     "network_error": "Could not reach the server. Check your connection and try again.",
     "category_not_found": "This category doesn't exist.",
     "question_not_found": "This question doesn't exist.",
-    "unknown_error": "An unexpected error occurred. Try again."
+    "unknown_error": "An unexpected error occurred. Try again.",
+    "room_not_found": "This game doesn't exist or has expired.",
+    "room_service_unavailable": "The multi-screen service is temporarily unavailable. Try again shortly.",
+    "connection_lost": "Connection to the game was lost.",
+    "not_in_question": "No question is currently active.",
+    "already_answered": "You've already answered this question.",
+    "not_game_master": "Only the game master can do that.",
+    "invalid_message": "A communication error occurred."
+  },
+  "room": {
+    "home_desc": "One main screen, one controller, one device per player.",
+    "create": {
+      "title": "Create a game",
+      "mode_title": "Choose a mode",
+      "category_title": "Choose one or more themes",
+      "category_hint": "Select at least one theme.",
+      "question_count_title": "Number of questions",
+      "timer_title": "Answer time",
+      "submit": "Create the game",
+      "submitting": "Creating the game…",
+      "error": "Could not create the game. Try again."
+    },
+    "join": {
+      "title": "Join a game",
+      "code_label": "Game code",
+      "code_placeholder": "ABCDEF",
+      "pseudo_label": "Your nickname",
+      "pseudo_placeholder": "Your nickname",
+      "submit": "Join",
+      "errors": {
+        "code_required": "Enter the game code.",
+        "pseudo_required": "Enter your nickname."
+      }
+    },
+    "lobby": {
+      "title": "Waiting for players",
+      "code_label": "Game code",
+      "scan_hint": "Scan this code to join",
+      "players_title": "Connected players",
+      "waiting_master": "Waiting for the game master to start the game…",
+      "start": "Start game",
+      "you_are_master": "You are the game master",
+      "you_are_player": "You are a player",
+      "use_as_main_screen": "Use this device as the main screen",
+      "main_screen_hint": "Place it on a large screen, before players join: read-only, no answer zone."
+    },
+    "connection": {
+      "connecting": "Connecting to the game…",
+      "reconnecting": "Reconnecting…",
+      "disconnected_player": "Disconnected"
+    },
+    "screen": {
+      "waiting_question": "Waiting for the next question…",
+      "waiting_answers": "Waiting for answers…",
+      "answered_count": "{{answered}} / {{total}} answered",
+      "results_title": "Results",
+      "leaderboard_title": "Leaderboard",
+      "next_question": "Next question",
+      "game_over": "Game over",
+      "final_leaderboard": "Final leaderboard"
+    },
+    "master": {
+      "title": "Controller",
+      "controls_title": "Controls",
+      "start": "Start game",
+      "next": "Next question",
+      "skip": "Skip question",
+      "waiting_reveal": "Answers waiting for reveal…",
+      "you_answered": "Your answer is recorded",
+      "no_spoiler": "You'll only see the right answer at the reveal, like every other player."
+    },
+    "player": {
+      "title": "Your game",
+      "waiting_start": "Waiting for the game master to start the game…",
+      "answer_recorded": "Answer recorded",
+      "your_result": "Your result",
+      "your_points": "+{{points}} pts",
+      "your_score": "Your score: {{score}}",
+      "waiting_next": "Waiting for the next question…"
+    },
+    "calibration_note": "In rooms, Binary mode uses the category threshold (no individual calibration in multi-screen mode yet)."
   },
   "common": {
     "loading": "Loading",
