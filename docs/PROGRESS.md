@@ -46,6 +46,12 @@ Aucun secret en clair (code/config/docs), jamais push .env, secrets prod génér
 - [ ] README complet
 
 ## Journal
+- 2026-07-08 (v2.2) : mode multi-ecrans temps reel (Kahoot) DEPLOYE en prod. Redis + WebSocket
+  (via Traefik natif), rooms avec code+QR, timer serveur-autoritatif, 3 roles (ecran principal /
+  manette MJ / appareil joueur), reconnexion. Lot 9 complet (infra+backend+frontend). 170 tests API.
+  Smoke test prod OK : creation room + handshake WS wss://kombien-api.gazai.fr/rooms/ws + join/role MJ.
+  Fix config: WEB_BASE_URL (QR) + VITE_WS_BASE (build web). Le cahier v2 est integralement livre.
+- 2026-07-04 (v2.1) : manche=1 question, timer 5s pass-and-play, transition allegee, fix questions differenciees. Deploye.
 - 2026-07-03 (v2) : v2 deployee en prod. Tout ephemere (plus d'XP/badges/leaderboard global),
   N-joueurs 2-8, 5 modes de selection de themes, questions differenciees, calibration binaire,
   fin assouplie, classement de session, import de masse (CSV/xlsx/md), split-flap etendu a tous
