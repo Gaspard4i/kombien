@@ -1,7 +1,7 @@
-// Client WS des rooms multi-écrans (Lot 9). Un seul canal `GET /rooms/ws` sert les 3 rôles
-// (écran principal, manette MJ, appareil joueur) — cf docs/API_CONTRACT.md. Ce module ne
-// contient aucune logique de vue : il connecte, (re)envoie `join`, pousse les messages reçus
-// dans roomStore, et expose les émetteurs (answer/mj:start/mj:next/mj:skip).
+// Client WS des rooms multi-écrans (Lot 9). Un seul canal `GET /rooms/ws` sert les rôles hôte
+// (présente et/ou joue, pilote toujours la partie) et joueur — cf docs/API_CONTRACT.md. Ce
+// module ne contient aucune logique de vue : il connecte, (re)envoie `join`, pousse les
+// messages reçus dans roomStore, et expose les émetteurs (answer/mj:start/mj:next/mj:skip).
 //
 // Reconnexion (PLAN_V2.md) : le protocole n'a PAS de message serveur->client "heartbeat"
 // documenté (cf API_CONTRACT.md, table des messages serveur->client) -- pas de ping applicatif
@@ -47,12 +47,23 @@ export interface RoomConnection {
   close(): void;
 }
 
+export interface ConnectToRoomOptions {
+  // Hôte (créateur de la room) : hostToken reçu à POST /rooms, présenté au premier join pour
+  // être authentifié comme hôte (§6.1, modèle Kahoot). Sans effet pour un joueur ordinaire.
+  hostToken?: string;
+  // Joue en plus de présenter (true) ou présente seulement (false). Sans effet si ce joueur
+  // ne s'avère pas être l'hôte.
+  isPlaying?: boolean;
+}
+
 /**
  * Ouvre (ou rouvre) la connexion à une room et rejoint-la avec `pseudo`. Le playerId, s'il
  * existe déjà en localStorage pour ce code, est renvoyé automatiquement (reconnexion) : le
  * pseudo n'est alors utilisé qu'en repli si le serveur ne connaît plus cet id (TTL expiré).
+ * `hostToken`/`isPlaying` ne sont envoyés qu'au premier join -- une reconnexion ultérieure
+ * renvoie le playerId déjà attribué, le rôle serveur (isHost/isPlaying) ne change plus.
  */
-export function connectToRoom(code: string, pseudo: string): RoomConnection {
+export function connectToRoom(code: string, pseudo: string, options: ConnectToRoomOptions = {}): RoomConnection {
   const upperCode = code.toUpperCase();
   let socket: WebSocket | null = null;
   let closedByCaller = false;
@@ -99,7 +110,7 @@ export function connectToRoom(code: string, pseudo: string): RoomConnection {
       case 'error':
         // room_not_found / room_service_unavailable : erreurs définitives, pas de retry
         // (retenter ne résoudra rien -- le code est invalide ou Redis est en panne). Les
-        // autres codes (already_answered, not_game_master, invalid_message...) sont des
+        // autres codes (already_answered, not_host, invalid_message...) sont des
         // rejets de message ponctuels, pas des coupures : on ne touche pas à `connection`.
         if (msg.code === 'room_not_found' || msg.code === 'room_service_unavailable') {
           closedByCaller = true;
@@ -116,7 +127,14 @@ export function connectToRoom(code: string, pseudo: string): RoomConnection {
 
     socket.addEventListener('open', () => {
       const storedPlayerId = getStoredPlayerId(upperCode);
-      send({ type: 'join', code: upperCode, pseudo, playerId: storedPlayerId ?? undefined });
+      send({
+        type: 'join',
+        code: upperCode,
+        pseudo,
+        playerId: storedPlayerId ?? undefined,
+        hostToken: options.hostToken,
+        isPlaying: options.isPlaying,
+      });
     });
 
     socket.addEventListener('message', handleMessage);

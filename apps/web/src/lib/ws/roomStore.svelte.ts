@@ -31,8 +31,10 @@ export interface RoomStoreState {
   mode: GameMode | null;
   status: RoomStatus | null;
   timerSeconds: number;
+  // Exclut tout hôte non-joueur (isPlaying=false) -- jamais dans le classement/la liste
+  // affichée, cf. domain/room-protocol.ts côté API.
   players: PublicPlayerView[];
-  you: { playerId: string; isGameMaster: boolean } | null;
+  you: { playerId: string; isHost: boolean; isPlaying: boolean } | null;
   question: QuestionShowMessage | null;
   results: QuestionResultsMessage | null;
   leaderboard: RoomLeaderboardEntry[];
@@ -75,7 +77,7 @@ export function applyRoomState(msg: {
   status: RoomStatus;
   timerSeconds: number;
   players: PublicPlayerView[];
-  you: { playerId: string; isGameMaster: boolean };
+  you: { playerId: string; isHost: boolean; isPlaying: boolean };
 }): void {
   state.connection = 'connected';
   state.errorCode = null;
@@ -104,11 +106,18 @@ export function applyGameEnd(leaderboard: RoomLeaderboardEntry[]): void {
   state.status = 'ended';
 }
 
+// null pour un hôte non-joueur : il n'apparaît jamais dans `players` (jamais de score/réponse
+// à afficher pour lui). Les vues qui l'appellent (PlayerView) ne sont de toute façon jamais
+// affichées à un hôte non-joueur (cf. RoomPlay.svelte, routage par isHost/isPlaying).
 export function you(): PublicPlayerView | null {
   if (!state.you) return null;
   return state.players.find((p) => p.id === state.you!.playerId) ?? null;
 }
 
-export function isGameMaster(): boolean {
-  return state.you?.isGameMaster ?? false;
+export function isHost(): boolean {
+  return state.you?.isHost ?? false;
+}
+
+export function isPlaying(): boolean {
+  return state.you?.isPlaying ?? false;
 }

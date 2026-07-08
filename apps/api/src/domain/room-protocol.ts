@@ -19,6 +19,14 @@ export interface JoinMessage {
   // Reconnexion (PLAN_V2) : si le client a déjà un playerId (stocké côté front après un
   // premier join), il le renvoie pour reprendre sa place plutôt que d'en créer une nouvelle.
   playerId?: string;
+  // Hôte (créateur de la room) : présente le hostToken reçu à POST /rooms pour être authentifié
+  // comme hôte (§6.1, modèle Kahoot). Ignoré si absent/incorrect ou si un hôte est déjà assigné
+  // -- ce joueur rejoint alors comme un joueur ordinaire.
+  hostToken?: string;
+  // Choix de l'hôte à l'entrée : joue en plus de présenter (true, défaut) ou présente
+  // seulement (false, écran de présentation + contrôleur, jamais dans le classement). Sans
+  // effet si ce joueur ne s'avère pas être l'hôte.
+  isPlaying?: boolean;
 }
 
 // Réponse brute d'un joueur à la question en cours. Mêmes champs que RawAnswer (domain/game.ts)
@@ -58,10 +66,12 @@ export type ClientMessage = JoinMessage | AnswerMessage | MjStartMessage | MjNex
 // ---- Serveur -> client ----
 
 // Vue joueur exposée dans room:state : jamais les réponses, seulement identité/statut/score.
+// Un hôte non-joueur n'apparaît JAMAIS dans `players` (cf. RoomStateMessage.players ci-dessous)
+// -- ce n'est pas un participant, seulement un écran de présentation + contrôleur (§6.1).
 export interface PublicPlayerView {
   id: string;
   pseudo: string;
-  isGameMaster: boolean;
+  isHost: boolean;
   connected: boolean;
   score: number;
   hasAnswered: boolean; // pendant la phase question, sans révéler LA réponse
@@ -69,15 +79,18 @@ export interface PublicPlayerView {
 
 // Diffusé après join/leave/toute mutation de la liste de joueurs, et en resync de
 // reconnexion. `you` indique au destinataire lequel des `players` est lui-même (id stable
-// côté client pour se retrouver dans la liste après un re-render).
+// côté client pour se retrouver dans la liste après un re-render) -- sauf pour un hôte
+// non-joueur, absent de `players` : `you` reste sa seule source d'identité côté client.
 export interface RoomStateMessage {
   type: 'room:state';
   code: string;
   mode: GameMode;
   status: RoomStatus;
   timerSeconds: number;
+  // Exclut tout hôte non-joueur (isPlaying=false) : jamais dans le classement/la liste des
+  // participants affichée aux joueurs.
   players: PublicPlayerView[];
-  you: { playerId: string; isGameMaster: boolean };
+  you: { playerId: string; isHost: boolean; isPlaying: boolean };
 }
 
 // Affichage de la question courante. `endsAt` (timestamp epoch ms) permet au client de
@@ -124,7 +137,8 @@ export type RoomErrorCode =
   | 'unknown_player'
   | 'not_in_question'
   | 'already_answered'
-  | 'not_game_master'
+  | 'not_host'
+  | 'not_playing'
   | 'invalid_message';
 
 export interface ErrorMessage {

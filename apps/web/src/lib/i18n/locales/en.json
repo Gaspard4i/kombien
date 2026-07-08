@@ -308,7 +308,8 @@
     "connection_lost": "Connection to the game was lost.",
     "not_in_question": "No question is currently active.",
     "already_answered": "You've already answered this question.",
-    "not_game_master": "Only the game master can do that.",
+    "not_host": "Only the host can do that.",
+    "not_playing": "You're not playing in this game.",
     "invalid_message": "A communication error occurred."
   },
   "room": {
@@ -341,12 +342,15 @@
       "code_label": "Game code",
       "scan_hint": "Scan this code to join",
       "players_title": "Connected players",
-      "waiting_master": "Waiting for the game master to start the game…",
+      "waiting_host": "Waiting for the host to start the game…",
       "start": "Start game",
-      "you_are_master": "You are the game master",
+      "you_are_host": "You are the host",
       "you_are_player": "You are a player",
-      "use_as_main_screen": "Use this device as the main screen",
-      "main_screen_hint": "Place it on a large screen, before players join: read-only, no answer zone."
+      "host_role_title": "Your role",
+      "host_present_only": "I'll present only",
+      "host_present_only_desc": "Shared main screen, no answer zone: you run the game without playing.",
+      "host_play_too": "I'll play too",
+      "host_play_too_desc": "You answer like the other players, on top of running the game."
     },
     "connection": {
       "connecting": "Connecting to the game…",
@@ -375,7 +379,7 @@
     },
     "player": {
       "title": "Your game",
-      "waiting_start": "Waiting for the game master to start the game…",
+      "waiting_start": "Waiting for the host to start the game…",
       "answer_recorded": "Answer recorded",
       "your_result": "Your result",
       "your_points": "+{{points}} pts",

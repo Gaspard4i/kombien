@@ -35,6 +35,7 @@
   let submitting = $state(false);
   let createdCode = $state<string | null>(null);
   let createdQr = $state<string | null>(null);
+  let createdHostToken = $state<string | null>(null);
 
   onMount(async () => {
     try {
@@ -72,6 +73,7 @@
       });
       createdCode = result.code;
       createdQr = result.qr;
+      createdHostToken = result.hostToken;
     } catch (err) {
       formError = err instanceof ApiError ? t(`errors.${err.code}`) : t('room.create.error');
     } finally {
@@ -81,7 +83,7 @@
 </script>
 
 {#if createdCode}
-  <RoomLobby code={createdCode} qr={createdQr} isCreator />
+  <RoomLobby code={createdCode} qr={createdQr} isCreator hostToken={createdHostToken} />
 {:else}
   <AppShell>
     <header class="room-create__header">

@@ -20,6 +20,12 @@ export interface JoinMessage {
   code: string;
   pseudo: string;
   playerId?: string;
+  // Hôte (créateur de la room) : présente le hostToken reçu à POST /rooms pour être authentifié
+  // comme hôte. Ignoré si absent/incorrect ou si un hôte est déjà assigné.
+  hostToken?: string;
+  // Joue en plus de présenter (true, défaut) ou présente seulement (false). Sans effet si ce
+  // joueur ne s'avère pas être l'hôte.
+  isPlaying?: boolean;
 }
 
 export interface AnswerMessage {
@@ -46,10 +52,12 @@ export type ClientMessage = JoinMessage | AnswerMessage | MjStartMessage | MjNex
 
 // ---- Serveur -> client ----
 
+// Un hôte non-joueur n'apparaît jamais dans `players` (jamais dans le classement/la liste
+// affichée) -- seul `you` (RoomStateMessage) informe ce joueur de son propre rôle.
 export interface PublicPlayerView {
   id: string;
   pseudo: string;
-  isGameMaster: boolean;
+  isHost: boolean;
   connected: boolean;
   score: number;
   hasAnswered: boolean;
@@ -62,7 +70,7 @@ export interface RoomStateMessage {
   status: RoomStatus;
   timerSeconds: number;
   players: PublicPlayerView[];
-  you: { playerId: string; isGameMaster: boolean };
+  you: { playerId: string; isHost: boolean; isPlaying: boolean };
 }
 
 export interface QuestionShowMessage {
@@ -104,7 +112,8 @@ export type RoomErrorCode =
   | 'unknown_player'
   | 'not_in_question'
   | 'already_answered'
-  | 'not_game_master'
+  | 'not_host'
+  | 'not_playing'
   | 'invalid_message'
   // Erreurs de transport côté client uniquement (jamais envoyées par le serveur) : la
   // connexion elle-même a échoué, ou Redis est indisponible (503 sur POST/GET /rooms,

@@ -1,8 +1,9 @@
 <script lang="ts">
-  // Manette du maître de jeu (Lot 9, GAME_DESIGN_V2.md §6) : le MJ répond comme n'importe quel
-  // joueur (même zone de réponse) et pilote en plus le rythme de la partie (mj:next/mj:skip).
-  // Ne voit JAMAIS la bonne réponse avant question:results (§6.1) -- room:state ne renvoie que
-  // hasAnswered par joueur, jamais la réponse elle-même ni la vérité terrain.
+  // Manette de l'hôte-joueur (Lot 9, GAME_DESIGN_V2.md §6) : l'hôte qui a choisi "je joue
+  // aussi" répond comme n'importe quel joueur (même zone de réponse) et pilote en plus le
+  // rythme de la partie (mj:next/mj:skip). Ne voit JAMAIS la bonne réponse avant
+  // question:results (§6.1) -- room:state ne renvoie que hasAnswered par joueur, jamais la
+  // réponse elle-même ni la vérité terrain.
   import { t, getLang } from '../../lib/i18n';
   import { getRoomState } from '../../lib/ws/roomStore.svelte';
   import type { RoomConnection } from '../../lib/ws/roomClient';

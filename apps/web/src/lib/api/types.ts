@@ -117,6 +117,9 @@ export interface CreateRoomInput {
 
 export interface CreateRoomResult {
   code: string;
+  // À présenter par le créateur au premier join WS pour être authentifié comme hôte de la room
+  // (§6.1, modèle Kahoot) -- jamais renvoyé par GET /rooms/:code.
+  hostToken: string;
   qr: string; // data URL PNG
 }
 

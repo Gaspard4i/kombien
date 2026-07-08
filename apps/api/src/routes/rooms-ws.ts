@@ -28,8 +28,9 @@ import type {
 } from '../domain/room-protocol.ts';
 
 // Transport WebSocket des rooms multi-écrans (Lot 9, §6). Un seul canal `GET /rooms/ws` sert
-// les 3 rôles (écran principal, manette MJ, appareil joueur) — voir room-protocol.ts pour le
-// détail des messages. Redis reste la source de vérité de RoomState (rejoue après un restart
+// les rôles hôte (présente et/ou joue, pilote toujours la partie) et joueur — voir
+// room-protocol.ts pour le détail des messages. Redis reste la source de vérité de RoomState
+// (rejoue après un restart
 // process tant que le TTL n'a pas expiré) ; cette map en mémoire ne tient que ce qui est
 // intrinsèquement local à CE process (mono-instance, cf. contraintes du lot — pas de pub/sub) :
 // - les sockets ouvertes, pour savoir à qui envoyer quoi (websocketServer.clients ne suffit
@@ -72,15 +73,20 @@ function broadcast(runtime: RoomRuntime, message: ServerMessage): void {
   }
 }
 
+// Un hôte non-joueur (isPlaying=false) n'apparaît jamais dans la liste publique de joueurs
+// (§6.1 : ce n'est pas un participant, jamais dans le classement/la liste affichée). Il reçoit
+// quand même son propre room:state (via `you`, cf. broadcastRoomState) pour piloter la partie.
 function toPublicPlayers(state: RoomState): PublicPlayerView[] {
-  return state.players.map((p) => ({
-    id: p.id,
-    pseudo: p.pseudo,
-    isGameMaster: p.isGameMaster,
-    connected: p.connected,
-    score: p.score,
-    hasAnswered: state.pendingAnswers.has(p.id),
-  }));
+  return state.players
+    .filter((p) => p.isPlaying)
+    .map((p) => ({
+      id: p.id,
+      pseudo: p.pseudo,
+      isHost: p.isHost,
+      connected: p.connected,
+      score: p.score,
+      hasAnswered: state.pendingAnswers.has(p.id),
+    }));
 }
 
 // room:state est personnalisé par destinataire (champ `you`) : on ne peut pas broadcaster un
@@ -97,7 +103,7 @@ function broadcastRoomState(runtime: RoomRuntime, state: RoomState): void {
       status: state.status,
       timerSeconds: state.timerSeconds,
       players,
-      you: { playerId, isGameMaster: self.isGameMaster },
+      you: { playerId, isHost: self.isHost, isPlaying: self.isPlaying },
     });
   }
 }
@@ -265,7 +271,13 @@ export async function roomsWsRoutes(app: FastifyInstance, redis: RedisClientType
         .catch((err) => console.error('[rooms-ws] erreur déconnexion', err));
     });
 
-    async function handleJoin(message: { code: string; pseudo?: string; playerId?: string }): Promise<void> {
+    async function handleJoin(message: {
+      code: string;
+      pseudo?: string;
+      playerId?: string;
+      hostToken?: string;
+      isPlaying?: boolean;
+    }): Promise<void> {
       code = message.code;
       const runtime = getOrCreateRuntime(code);
 
@@ -292,7 +304,10 @@ export async function roomsWsRoutes(app: FastifyInstance, redis: RedisClientType
       }
 
       playerId = randomUUID();
-      const result = await joinRoomAndSave(redis, code, playerId, message.pseudo);
+      const result = await joinRoomAndSave(redis, code, playerId, message.pseudo, {
+        hostToken: message.hostToken,
+        isPlaying: message.isPlaying,
+      });
       if (!result) {
         sendError(socket, 'room_not_found');
         code = null;
@@ -347,8 +362,8 @@ export async function roomsWsRoutes(app: FastifyInstance, redis: RedisClientType
         return;
       }
       const self = state.players.find((p) => p.id === pid);
-      if (!self?.isGameMaster) {
-        sendError(socket, 'not_game_master');
+      if (!self?.isHost) {
+        sendError(socket, 'not_host');
         return;
       }
       const runtime = getOrCreateRuntime(roomCode);
@@ -370,8 +385,8 @@ export async function roomsWsRoutes(app: FastifyInstance, redis: RedisClientType
         return;
       }
       const self = state.players.find((p) => p.id === pid);
-      if (!self?.isGameMaster) {
-        sendError(socket, 'not_game_master');
+      if (!self?.isHost) {
+        sendError(socket, 'not_host');
         return;
       }
       if (state.status === 'question') {

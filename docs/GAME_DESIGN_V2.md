@@ -270,13 +270,17 @@ Contrairement au timer multi-écrans (§6.2, toujours en attente d'implémentati
 
 ### 6.1 Rôles
 
+**Hôte = créateur de la partie** (celui qui lance la création de la room), authentifié serveur par un jeton dédié — jamais « le premier connecté » : le créateur reste l'hôte même s'il tarde à ouvrir sa propre connexion après avoir partagé le code aux autres joueurs. Un seul hôte par room, décidé une fois pour toutes.
+
+L'hôte choisit, avant de rejoindre, s'il **présente seulement** (défaut, écran principal partagé + contrôleur, jamais dans le classement, jamais de zone de réponse) ou s'il **joue en plus de présenter** (répond comme les autres, en plus de piloter). Dans les deux cas, l'hôte seul contrôle le déroulement de la partie (démarrer, avancer, passer) — y compris **démarrer directement sans jouer**, modèle Kahoot.
+
 | Interface | Rôle | Voit les bonnes réponses ? |
 |---|---|---|
-| Écran principal | Affichage partagé (question, timer, révélation split-flap, classement de session) | Seulement à la révélation (après que tous ont répondu) |
-| Manette de gestion (maître de jeu) | Contrôle la partie (avance, skip). Peut aussi jouer. | **Jamais avant la révélation**, y compris ses propres réponses ne lui donnent pas d'avantage d'information sur celles des autres |
+| Hôte non-joueur (« je présente seulement ») | Affichage partagé (question, timer, révélation split-flap, classement de session) + contrôle de la partie (avance, skip) | Seulement à la révélation (après que tous les joueurs ont répondu) |
+| Hôte joueur (« je joue aussi ») | Répond comme un joueur, contrôle en plus la partie (avance, skip) | **Jamais avant la révélation**, y compris ses propres réponses ne lui donnent pas d'avantage d'information sur celles des autres |
 | Appareil joueur | Répond individuellement | Non, jusqu'à la révélation |
 
-**Maître de jeu = premier joueur connecté** à la room (créateur de la partie). Il peut cumuler le rôle de joueur.
+Un hôte non-joueur n'entre jamais dans le classement de session (§6.5) ni dans le calcul « tous les joueurs ont répondu » (§6.3) — il n'est pas un participant, seulement un présentateur/contrôleur.
 
 ### 6.2 Timer de réponse
 
@@ -317,7 +321,7 @@ Résumé des choix normatifs de ce document, pour référence rapide :
 7. **Calibration Binaire** : 5 questions (pas 10), pool dédié hors catégorie de jeu, **seuil individuel par joueur** (pas consensuel), dérivé par moyenne géométrique des bornes basse/haute observées, repli défini pour les cas extrêmes/incohérents (§3).
 8. **Fin de partie assouplie** : arrêt à tout moment quelle que soit la condition de fin choisie ; manche incomplète à l'arrêt = annulée entièrement (score ET streak reviennent à l'état de la dernière manche complète) ; arrêt en 1ère manche incomplète = partie annulée sans résultat (§4).
 9. **Questions différenciées** : tirage par joueur dans le pool actif, priorité à la non-répétition intra-joueur sur la non-répétition inter-joueurs si le pool est petit ; Duel bascule en écart **relatif** (et non absolu) dès que les questions diffèrent entre joueurs — formule qui généralise v1 sans le casser en questions communes (§5).
-10. **Multi-écrans** : rôles et visibilité de l'information stricts (maître de jeu jamais avantagé), timer 10s par défaut configurable, non-réponse traitée comme mauvaise réponse / dernier rang, 3 modes tous compatibles avec le même mécanisme de timer/progression. **Lot v2.2, implémenté en dernier** (§6).
+10. **Multi-écrans** : hôte = créateur de la partie (authentifié serveur, pas « premier connecté »), peut présenter seulement ou jouer en plus de présenter ; rôles et visibilité de l'information stricts (hôte jamais avantagé, hôte non-joueur jamais dans le classement ni dans le calcul des réponses attendues), timer 10s par défaut configurable, non-réponse traitée comme mauvaise réponse / dernier rang, 3 modes tous compatibles avec le même mécanisme de timer/progression. **Lot v2.2, implémenté en dernier** (§6).
 
 ---
 

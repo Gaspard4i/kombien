@@ -1,24 +1,25 @@
 <script lang="ts">
-  // Écran principal (Lot 9, GAME_DESIGN_V2.md §6) : affichage lecture seule partagé par tous
-  // les joueurs (grand écran, projecteur...). Aucune zone de réponse -- ce mode n'agit jamais
-  // sur la partie (ni answer, ni mj:*), il ne fait que refléter room:state/question:show/
-  // question:results, comme n'importe quel joueur ordinaire côté transport (cf RoomPlay.svelte,
-  // note en tête de fichier sur l'absence de rôle serveur dédié).
+  // Écran principal (Lot 9, GAME_DESIGN_V2.md §6) : affichage partagé par tous les joueurs
+  // (grand écran, projecteur...). Deux usages possibles selon `isHost` :
+  // - hôte non-joueur (modèle Kahoot "je présente seulement") : ce même écran porte aussi les
+  //   contrôles de partie (démarrer/suivant/passer) -- l'hôte pilote sans jouer.
+  // - second écran/projecteur sans contrôle (isHost=false, ou aucune connexion fournie) :
+  //   lecture seule pure, ne fait que refléter room:state/question:show/question:results.
   import { t, getLang } from '../../lib/i18n';
   import { getRoomState } from '../../lib/ws/roomStore.svelte';
   import type { RoomConnection } from '../../lib/ws/roomClient';
   import Card from '../../lib/components/Card.svelte';
+  import Button from '../../lib/components/Button.svelte';
   import Leaderboard from '../../lib/components/Leaderboard.svelte';
   import Icon from '../../lib/components/Icon.svelte';
   import RoomRevealPanel from './RoomRevealPanel.svelte';
 
   interface Props {
-    // Non utilisé (lecture seule, ce mode n'émet jamais de message) -- gardé pour une
-    // signature homogène avec MasterView/PlayerView du côté appelant (RoomPlay.svelte).
     connection?: RoomConnection | null;
+    isHost?: boolean;
   }
 
-  const {}: Props = $props();
+  const { connection = null, isHost = false }: Props = $props();
 
   const room = getRoomState();
 
@@ -33,10 +34,31 @@
       isWinner: i === 0,
     })),
   );
+
+  function handleStart(): void {
+    connection?.mjStart();
+  }
+
+  function handleSkip(): void {
+    connection?.mjSkip();
+  }
+
+  function handleNext(): void {
+    connection?.mjNext();
+  }
 </script>
 
 <div class="main-screen">
-  {#if room.status === 'question' && room.question}
+  {#if room.status === 'lobby' && isHost}
+    <p class="main-screen__waiting" role="status">
+      <Icon name="clock" size="md" />
+      {t('room.screen.waiting_question')}
+    </p>
+    <Button variant="primary" fullWidth onclick={handleStart} disabled={room.players.length === 0}>
+      <Icon name="hand-tap" size="md" />
+      {t('room.lobby.start')}
+    </Button>
+  {:else if room.status === 'question' && room.question}
     {@const q = room.question}
     <Card>
       <p class="main-screen__question">
@@ -51,12 +73,26 @@
     <p class="main-screen__answered-count">
       {t('room.screen.answered_count', { answered: answeredCount, total: connectedCount })}
     </p>
+
+    {#if isHost}
+      <Button variant="ghost" fullWidth onclick={handleSkip}>
+        <Icon name="caret-right" size="md" />
+        {t('room.master.skip')}
+      </Button>
+    {/if}
   {:else if room.status === 'results' && room.results}
     <h2 class="main-screen__title">{t('room.screen.results_title')}</h2>
     <RoomRevealPanel durationSeconds={room.results.durationSeconds} lang={getLang()} />
 
     <h3 class="main-screen__subtitle">{t('room.screen.leaderboard_title')}</h3>
     <Leaderboard entries={leaderboardEntries} variant="compact" />
+
+    {#if isHost}
+      <Button variant="primary" fullWidth onclick={handleNext}>
+        <Icon name="caret-right" size="md" />
+        {t('room.master.next')}
+      </Button>
+    {/if}
   {:else if room.status === 'ended'}
     <h2 class="main-screen__title">{t('room.screen.game_over')}</h2>
     <h3 class="main-screen__subtitle">{t('room.screen.final_leaderboard')}</h3>

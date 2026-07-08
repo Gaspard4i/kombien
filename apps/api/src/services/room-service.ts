@@ -5,6 +5,7 @@
 // chargement de la vérité terrain des questions depuis Postgres).
 
 import type { RedisClientType } from 'redis';
+import { randomUUID } from 'node:crypto';
 import { drawQuestionsForCategories } from './questions-service.ts';
 import { generateRoomCode } from './room-code.ts';
 import { saveRoom, loadRoom, loadPublicRoomInfo, deleteRoom, type PublicRoomInfo } from './room-store.ts';
@@ -21,6 +22,7 @@ import {
   computeLeaderboard,
   type RoomState,
   type RoomQuestionRef,
+  type JoinOptions,
   type JoinResult,
   type SubmitAnswerResult,
   type CloseQuestionResult,
@@ -51,9 +53,9 @@ function assertRedis(redis: RedisClientType | null): asserts redis is RedisClien
 
 // Sérialise les opérations lire-modifier-écrire sur une même room (mono-instance, cf.
 // contraintes du lot — pas de verrou distribué nécessaire). Sans ce verrou, deux `join`
-// concurrents (deux joueurs qui rejoignent au même instant) peuvent tous les deux lire
-// `players.length === 0` avant que l'un ou l'autre ait sauvegardé, et devenir maître de jeu
-// tous les deux (§6.1 : un seul MJ, le premier connecté). Chaque fonction `*AndSave`
+// concurrents sur le hostToken (rare mais possible si le créateur ouvre deux onglets)
+// pourraient tous les deux lire `hostAssigned=false` avant que l'un ou l'autre ait sauvegardé,
+// et devenir hôte tous les deux (§6.1 : un seul hôte par room). Chaque fonction `*AndSave`
 // ci-dessous qui fait un load -> transition pure -> save passe par `withRoomLock`.
 const roomLocks = new Map<string, Promise<void>>();
 
@@ -85,12 +87,15 @@ export interface CreateRoomInput {
 
 export interface CreateRoomResult {
   code: string;
+  hostToken: string; // à présenter par le créateur au premier `join` WS pour devenir l'hôte
   questions: RoomQuestionRef[]; // ordre de jeu, vérité terrain déjà chargée (anti-triche)
 }
 
 // Crée une room : tire les questions (réutilise questions-service, même pool que le
 // pass-and-play), génère un code unique (retry si collision, improbable sur 6 car. mais
-// vérifié pour rester correct), et persiste l'état initial (lobby, aucun joueur).
+// vérifié pour rester correct), et persiste l'état initial (lobby, aucun joueur). Le hostToken
+// est un secret serveur généré ici une seule fois : c'est la preuve que le créateur (POST
+// /rooms), et lui seul, peut devenir l'hôte au join WS (§6.1, modèle Kahoot).
 export async function createRoom(
   db: QueryExecutor,
   redis: RedisClientType | null,
@@ -114,13 +119,14 @@ export async function createRoom(
     code = generateRoomCode();
   }
 
-  const state = createRoomState(code, input.mode, input.timerSeconds ?? DEFAULT_TIMER_SECONDS);
+  const hostToken = randomUUID();
+  const state = createRoomState(code, input.mode, input.timerSeconds ?? DEFAULT_TIMER_SECONDS, hostToken);
   await saveRoom(redis, state);
   // La liste de questions n'a pas sa place dans RoomState (snapshot exposé tel quel côté
   // resync) : elle est reconstituée à la demande par questionAt ci-dessous, à partir de
   // l'index courant + d'un tirage stocké côté appelant (voir room-ws.ts, qui garde la liste
   // en mémoire process le temps de la partie — mono-instance, cf. contraintes du lot).
-  return { code, questions };
+  return { code, hostToken, questions };
 }
 
 export async function getPublicRoomInfo(redis: RedisClientType | null, code: string): Promise<PublicRoomInfo | null> {
@@ -138,12 +144,13 @@ export async function joinRoomAndSave(
   code: string,
   playerId: string,
   pseudo: string,
+  options: JoinOptions = {},
 ): Promise<JoinResult | null> {
   assertRedis(redis);
   return withRoomLock(code, async () => {
     const state = await loadRoom(redis, code);
     if (!state) return null;
-    const result = joinRoom(state, playerId, pseudo);
+    const result = joinRoom(state, playerId, pseudo, options);
     await saveRoom(redis, result.state);
     return result;
   });

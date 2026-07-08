@@ -86,10 +86,11 @@ test('scoreRoomAnswer : duel, noAnswer -> écart infini, jamais dans le groupe d
   assert.equal(points, 0);
 });
 
-// Régression : deux `join` concurrents sur la même room (deux joueurs qui rejoignent au même
-// instant) doivent être sérialisés, sinon les deux peuvent lire "players.length === 0" avant
-// que l'un ou l'autre ait sauvegardé et devenir maître de jeu tous les deux (§6.1, bug observé
-// en test manuel bout en bout avant l'introduction de withRoomLock).
+// Régression : deux `join` concurrents sur la même room (par ex. le créateur qui ouvre deux
+// onglets avec le même hostToken) doivent être sérialisés, sinon les deux peuvent lire
+// "hostAssigned === false" avant que l'un ou l'autre ait sauvegardé et devenir hôte tous les
+// deux (§6.1, bug de la même famille que celui observé avec l'ancien modèle "premier connecté",
+// avant l'introduction de withRoomLock).
 test('withRoomLock : sérialise les opérations concurrentes sur une même room', async () => {
   const order: number[] = [];
   let counter = 0;

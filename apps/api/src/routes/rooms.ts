@@ -10,6 +10,11 @@ import { registerRoomQuestions } from './rooms-ws.ts';
 // routes/rooms-ws.ts). Redis étant branché en best-effort (app.ts), toute indisponibilité se
 // traduit ici par un 503 explicite plutôt qu'un crash de l'API — le pass-and-play continue de
 // fonctionner sans Redis.
+//
+// Modèle hôte (§6.1) : le créateur (celui qui POST /rooms) reçoit un hostToken à usage unique,
+// qu'il présente au premier `join` WS pour être authentifié comme hôte de la room -- ce n'est
+// jamais "le premier connecté" (ancien modèle). Le hostToken n'est jamais renvoyé par
+// GET /rooms/:code (état public de la room, consulté par n'importe qui avant de rejoindre).
 export async function roomsRoutes(app: FastifyInstance, redis: RedisClientType | null, webBaseUrl: string): Promise<void> {
   app.post(
     '/rooms',
@@ -36,7 +41,7 @@ export async function roomsRoutes(app: FastifyInstance, redis: RedisClientType |
       };
 
       try {
-        const { code, questions } = await createRoom(app.pg, redis, {
+        const { code, hostToken, questions } = await createRoom(app.pg, redis, {
           categorySlugs: body.categorySlugs,
           mode: body.mode,
           questionCount: body.questionCount ?? 10,
@@ -45,7 +50,7 @@ export async function roomsRoutes(app: FastifyInstance, redis: RedisClientType |
         registerRoomQuestions(code, questions);
         const joinUrl = buildRoomJoinUrl(webBaseUrl, code);
         const qr = await generateRoomQr(joinUrl);
-        return reply.code(201).send({ code, qr });
+        return reply.code(201).send({ code, hostToken, qr });
       } catch (err) {
         if (err instanceof RoomServiceUnavailableError) {
           return reply.code(503).send({ error: 'room_service_unavailable' });

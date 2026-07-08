@@ -308,7 +308,8 @@
     "connection_lost": "Connexion perdue avec la partie.",
     "not_in_question": "Aucune question en cours.",
     "already_answered": "Tu as déjà répondu à cette question.",
-    "not_game_master": "Seul le maître de jeu peut faire ça.",
+    "not_host": "Seul l'hôte peut faire ça.",
+    "not_playing": "Tu ne joues pas cette partie.",
     "invalid_message": "Une erreur de communication est survenue."
   },
   "room": {
@@ -341,12 +342,15 @@
       "code_label": "Code de la partie",
       "scan_hint": "Scanne ce code pour rejoindre",
       "players_title": "Joueurs connectés",
-      "waiting_master": "En attente que le maître de jeu lance la partie…",
+      "waiting_host": "En attente que l'hôte lance la partie…",
       "start": "Démarrer la partie",
-      "you_are_master": "Tu es le maître de jeu",
+      "you_are_host": "Tu es l'hôte",
       "you_are_player": "Tu es joueur",
-      "use_as_main_screen": "Utiliser cet appareil comme écran principal",
-      "main_screen_hint": "À poser sur un grand écran, avant que les joueurs rejoignent : lecture seule, sans zone de réponse."
+      "host_role_title": "Ton rôle",
+      "host_present_only": "Je présente seulement",
+      "host_present_only_desc": "Écran principal partagé, sans zone de réponse : tu pilotes la partie sans y jouer.",
+      "host_play_too": "Je joue aussi",
+      "host_play_too_desc": "Tu réponds comme les autres joueurs, en plus de piloter la partie."
     },
     "connection": {
       "connecting": "Connexion à la partie…",
@@ -375,7 +379,7 @@
     },
     "player": {
       "title": "Ta partie",
-      "waiting_start": "En attente que le maître de jeu démarre la partie…",
+      "waiting_start": "En attente que l'hôte démarre la partie…",
       "answer_recorded": "Réponse enregistrée",
       "your_result": "Ton résultat",
       "your_points": "+{{points}} pts",
