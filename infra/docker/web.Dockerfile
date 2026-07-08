@@ -3,6 +3,10 @@
 
 FROM node:22-alpine AS build
 WORKDIR /app/apps/web
+# URL du WebSocket temps réel (mode multi-écrans). Inlinée au build par Vite.
+# En prod le client vise l'API via Traefik : wss://kombien-api.gazai.fr.
+ARG VITE_WS_BASE
+ENV VITE_WS_BASE=${VITE_WS_BASE}
 COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci
 COPY apps/web ./

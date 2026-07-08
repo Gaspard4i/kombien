@@ -66,6 +66,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kombien}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-kombien}
       ADMIN_SECRET: ${ADMIN_SECRET}
       REDIS_URL: redis://kombien-redis:6379
+      # URL publique du front : encodée dans le QR code des rooms multi-écrans
+      WEB_BASE_URL: ${WEB_BASE_URL:-https://kombien.gazai.fr}
       PORT: "3000"
       NODE_ENV: production
     depends_on:
@@ -94,6 +96,9 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        # WebSocket temps réel via Traefik (mode multi-écrans). Inliné au build.
+        VITE_WS_BASE: ${VITE_WS_BASE:-wss://kombien-api.gazai.fr}
     container_name: kombien-web
     image: kombien-web:latest
     restart: unless-stopped
